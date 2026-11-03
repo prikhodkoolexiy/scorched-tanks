@@ -1,0 +1,1652 @@
+<meta charset="utf-8">
+<title>Scorched Tanks</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@500;700&display=swap">
+<style>
+  /* Layout: a 16:9 canvas centered in the viewport; the lobby is a card laid over it. */
+  :root {
+    --bg: #0b0d14;
+    --ink: #efe6d2;
+    --amber: #ffb627;
+    --ember: #e4572e;
+    --steel: #7d8aa0;
+    --panel: #121726;
+    --line: #2f3853;
+    --font-display: 'Bungee', Impact, 'Arial Black', sans-serif;
+    --font-hud: 'Chakra Petch', Menlo, 'Courier New', monospace;
+    color-scheme: dark;
+  }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-hud);
+    display: flex; align-items: center; justify-content: center;
+    padding-block: 8px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    box-sizing: border-box; overflow: hidden;
+  }
+  #c {
+    display: block; aspect-ratio: 16 / 9;
+    width: min(100%, calc((100dvh - 16px) * 16 / 9)); max-width: 100%;
+    background: #000; outline: none; border: 2px solid #1e2433; box-sizing: border-box;
+  }
+  #c:focus-visible { border-color: var(--amber); }
+  #ui {
+    position: fixed; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center;
+    background: rgba(6, 8, 16, 0.6); box-sizing: border-box; overflow: auto;
+    padding-block: 16px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .card {
+    width: min(580px, 100%); box-sizing: border-box; margin: auto;
+    background: linear-gradient(#171c2c, #0b0e18); border: 2px solid var(--line); border-radius: 14px; padding: 22px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  }
+  h1 { font-family: var(--font-display); margin: 0; font-size: clamp(34px, 8vw, 58px); line-height: 1; color: var(--amber); text-wrap: balance; }
+  h1 span { color: var(--ember); }
+  .sub { margin: 8px 0 0; color: #aab3c6; font-size: 14px; }
+  .tabs { display: flex; gap: 8px; margin: 18px 0 14px; }
+  .tab, .btn {
+    font: inherit; font-weight: 700; color: var(--ink); background: #1a2033; border: 2px solid var(--line);
+    border-radius: 8px; padding: 10px 14px; cursor: pointer;
+  }
+  .tab { flex: 1; }
+  .tab[aria-selected="true"] { border-color: var(--amber); color: var(--amber); }
+  .btn.primary { background: var(--amber); border-color: var(--amber); color: #1b1405; }
+  .btn:disabled { opacity: 0.45; cursor: default; }
+  .btn:focus-visible, .tab:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+  .row label { flex: 1 1 180px; min-width: 0; color: #c9cfdc; }
+  select, input[type="text"] {
+    font: inherit; color: var(--ink); background: #0d1120; border: 2px solid var(--line); border-radius: 8px;
+    padding: 8px 10px; min-width: 0;
+  }
+  input[type="text"] { flex: 1 1 160px; }
+  .note { color: #9aa6bb; font-size: 13px; line-height: 1.45; margin: 8px 0; }
+  .note.warn { color: #ffb627; }
+  .err { color: #ff7a66; font-size: 14px; min-height: 18px; margin: 6px 0 0; }
+  .code { font-family: var(--font-display); font-size: 40px; letter-spacing: 6px; color: var(--amber); }
+  .plist { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
+  .plist li { display: flex; align-items: center; gap: 10px; background: #0d1120; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  .plist i { width: 10px; height: 22px; border-radius: 3px; display: inline-block; }
+  .plist small { margin-left: auto; color: #7d8aa0; }
+  .div { height: 1px; background: var(--line); margin: 16px 0; }
+  .foot { margin-top: 14px; color: #7d8aa0; font-size: 12px; }
+</style>
+<canvas id="c" tabindex="0" aria-label="Scorched Tanks, артиллерийская игра"></canvas>
+<div id="ui">
+  <div class="card">
+    <h1>SCORCHED <span>TANKS</span></h1>
+    <p class="sub">Артиллерийская дуэль: 9 видов оружия, разрушаемая земля, ветер, магазин.</p>
+    <div class="tabs" role="tablist">
+      <button class="tab" id="tabLocal" role="tab" aria-selected="true">Один Mac</button>
+      <button class="tab" id="tabOnline" role="tab" aria-selected="false">Онлайн по приглашению</button>
+    </div>
+
+    <div id="paneLocal">
+      <div class="row"><label for="locTotal">Всего танков</label><select id="locTotal"></select></div>
+      <div class="row"><label for="locHumans">Из них людей за этим компьютером</label><select id="locHumans"></select></div>
+      <div class="row"><label for="locLvl">Уровень ИИ</label><select id="locLvl"><option value="0">Лёгкий</option><option value="1" selected>Средний</option><option value="2">Сложный</option></select></div>
+      <div class="row"><label for="locMap">Ландшафт</label><select id="locMap"><option value="-1">Случайный</option><option value="0">Холмы</option><option value="1">Горы</option><option value="2">Равнина</option><option value="3">Каньон</option><option value="4">Одна гора</option></select></div>
+      <div class="row"><label for="locTheme">Обстановка</label><select id="locTheme"><option value="-1">Случайно</option><option value="0">Закат</option><option value="1">День</option><option value="2">Ночь</option><option value="3">Марс</option></select></div>
+      <p class="note" id="locNote"></p>
+      <button class="btn primary" id="locStart">Начать игру</button>
+    </div>
+
+    <div id="paneOnline" hidden>
+      <div class="row"><label for="onName">Ваше имя</label><input type="text" id="onName" maxlength="16" value="Игрок"></div>
+      <p class="note warn" id="onOff" hidden>Онлайн работает, когда игра запущена через server.js (двойной клик по start.command в папке Scorched-Tanks). В этом окне доступна только игра на одном компьютере.</p>
+      <div id="onHome">
+        <button class="btn primary" id="onCreate">Создать комнату</button>
+        <div class="div"></div>
+        <div class="row"><label for="onCode">Код комнаты друга</label><input type="text" id="onCode" maxlength="4" autocomplete="off" style="text-transform:uppercase"><button class="btn" id="onJoin">Войти</button></div>
+      </div>
+      <div id="onRoom" hidden>
+        <div class="note">Код комнаты</div>
+        <div class="code" id="roomCode">----</div>
+        <div id="roomInvite">
+          <div class="row"><label for="roomBase">Адрес для друзей</label><select id="roomBase"></select></div>
+          <div class="row"><input type="text" id="roomLink" readonly aria-label="Ссылка-приглашение"><button class="btn" id="roomCopy">Копировать</button></div>
+          <p class="note" id="roomNote">Адрес с пометкой «интернет» (https://….ts.net) открывается откуда угодно, пока на вашем Mac запущен start.command. Адрес с пометкой «Wi-Fi» работает только в вашей сети.</p>
+        </div>
+        <ul class="plist" id="roomList"></ul>
+        <div class="row" id="roomHostRow"><label for="roomTotal">Всего танков</label><select id="roomTotal"></select></div>
+        <div class="row" id="roomLvlRow"><label for="roomLvl">Уровень ИИ</label><select id="roomLvl"><option value="0">Лёгкий</option><option value="1" selected>Средний</option><option value="2">Сложный</option></select></div>
+        <div class="row" id="roomMapRow"><label for="roomMap">Ландшафт</label><select id="roomMap"><option value="-1">Случайный</option><option value="0">Холмы</option><option value="1">Горы</option><option value="2">Равнина</option><option value="3">Каньон</option><option value="4">Одна гора</option></select></div>
+        <div class="row" id="roomThemeRow"><label for="roomTheme">Обстановка</label><select id="roomTheme"><option value="-1">Случайно</option><option value="0">Закат</option><option value="1">День</option><option value="2">Ночь</option><option value="3">Марс</option></select></div>
+        <p class="note" id="roomAi"></p>
+        <div class="row">
+          <button class="btn primary" id="roomStart">Начать игру</button>
+          <span class="note" id="roomWait" hidden>Ждём, когда хост начнёт игру…</span>
+          <button class="btn" id="roomLeave">Выйти</button>
+        </div>
+      </div>
+      <p class="err" id="onErr" role="alert"></p>
+    </div>
+    <div class="foot">Управление: ←→ угол, ↑↓ сила, Shift точно, Пробел огонь, Tab выбор оружия, M звук.</div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js" async></script>
+<script>
+(() => {
+'use strict';
+const W = 1280, H = 720;
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+cv.width = W; cv.height = H;
+const $ = id => document.getElementById(id);
+const FONT = "'Chakra Petch', Menlo, monospace";
+const TITLE = "'Bungee', Impact, sans-serif";
+const R = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const G = 0.13, WA = 0.0016;
+function shade(hex, f) {
+  const n = parseInt(hex.slice(1), 16); let r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+  const t = f < 0 ? 0 : 255, a = Math.abs(f);
+  r = Math.round(r + (t - r) * a); g = Math.round(g + (t - g) * a); b = Math.round(b + (t - b) * a);
+  return `rgb(${r},${g},${b})`;
+}
+
+/* ---------- network state ---------- */
+const NET = { mode: 'local', tr: 'ws', ws: null, peer: null, conn: null, conns: null, nextId: 1, myId: 0, code: '', serverOk: false };
+let evq = [], tver = 0, tSent = -1, roundSeq = 0, lastRid = -1, themeIdx = 0, netTf = 0;
+let aimTimer = 0, aimLeft = 0, shopWait = new Set(), shopTimer = 0, shopTimerShow = 0, shopWaitN = 0, shopDoneLocal = false;
+let lastAim = '', lastMv = 0;
+const ui = { wm: false, pm: false };
+
+/* ---------- input ---------- */
+const keys = {};
+addEventListener('keydown', e => {
+  if (state !== 'menu' && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Tab'].includes(e.key)) e.preventDefault();
+  if (!e.repeat) onKey(e);
+  keys[e.key] = true;
+});
+addEventListener('keyup', e => { keys[e.key] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+function pos(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; }
+cv.addEventListener('pointerdown', e => { cv.focus(); audio(); onClick(pos(e)); });
+cv.addEventListener('pointermove', e => { onHover(pos(e)); });
+
+/* ---------- audio ---------- */
+let AC = null, muted = false;
+function audio() {
+  if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; } }
+  if (AC && AC.state === 'suspended') AC.resume();
+  return AC;
+}
+function noise(dur, vol, fc) {
+  const a = audio(); if (!a || muted) return;
+  const n = Math.floor(a.sampleRate * dur), b = a.createBuffer(1, n, a.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 2);
+  const s = a.createBufferSource(); s.buffer = b;
+  const f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = fc;
+  const g = a.createGain(); g.gain.value = vol;
+  s.connect(f); f.connect(g); g.connect(a.destination); s.start();
+}
+function tone(f0, f1, dur, vol, type) {
+  const a = audio(); if (!a || muted) return;
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = type || 'square';
+  o.frequency.setValueAtTime(f0, a.currentTime);
+  o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), a.currentTime + dur);
+  g.gain.setValueAtTime(vol, a.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + dur);
+  o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + dur);
+}
+
+/* ---------- data ---------- */
+const WEAPONS = [
+  { name: 'Ракета', desc: 'Базовая, без лимита', r: 30, dmg: 32, type: 'std', vm: 1, gm: 1 },
+  { name: 'Бомба', desc: 'Большой радиус', r: 48, dmg: 52, type: 'std', vm: 1, gm: 1, price: 400, pack: 3 },
+  { name: 'Ядерка', desc: 'Огромный взрыв', r: 96, dmg: 100, type: 'std', vm: 1, gm: 1, price: 1500, pack: 1 },
+  { name: 'MIRV', desc: 'Делится на 5 зарядов', r: 26, dmg: 28, type: 'mirv', vm: 1, gm: 1, price: 1000, pack: 2 },
+  { name: 'Земля', desc: 'Насыпает холм', r: 56, dmg: 0, type: 'dirt', vm: 1, gm: 1, price: 250, pack: 3 },
+  { name: 'Снайпер', desc: 'Прямо по лазерному прицелу', r: 16, dmg: 50, type: 'std', vm: 1, gm: 0, nw: true, fixed: 12, price: 500, pack: 3 },
+  { name: 'Тройной', desc: 'Три снаряда веером', r: 28, dmg: 28, type: 'std', vm: 1, gm: 1, n: 3, price: 600, pack: 3 },
+  { name: 'Копатель', desc: 'Роет глубокую шахту', r: 22, dmg: 20, type: 'digger', vm: 1, gm: 1, price: 450, pack: 3 },
+  { name: 'Каток', desc: 'Катится по земле', r: 40, dmg: 40, type: 'roller', vm: 1, gm: 1, price: 700, pack: 2 },
+];
+const NW = WEAPONS.length;
+const SHOP = [];
+for (let i = 1; i < NW; i++) SHOP.push({ name: WEAPONS[i].name + ' x' + WEAPONS[i].pack, price: WEAPONS[i].price, wi: i, give: p => p.inv[i] += WEAPONS[i].pack });
+const SHIELDS = [
+  { name: 'Щит', desc: 'Поглощает 60 урона', hp: 60, col: '110,220,255', deflect: false, price: 500, pack: 2 },
+  { name: 'Тяжёлый щит', desc: 'Поглощает 150 урона', hp: 150, col: '130,150,255', deflect: false, price: 900, pack: 1 },
+  { name: 'Отражатель', desc: 'Отбивает снаряды назад', hp: 80, col: '255,205,90', deflect: true, price: 1100, pack: 1 },
+];
+const NS = SHIELDS.length, SR = 30;
+SHIELDS.forEach((sd, j) => SHOP.push({ name: sd.name + ' x' + sd.pack, price: sd.price, wi: -1, si: j, give: p => p.shields[j] += sd.pack }));
+const SHOP_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-'];
+const COLORS = ['#ff6b4a', '#4aa3ff', '#ffd24a', '#6be08a', '#c77dff', '#ff9f43', '#ff5fa2', '#3fd0c9', '#b8e04a', '#dcdcf0'];
+const MAXT = 10;
+const THEMES = [
+  { sky: ['#1b2a49', '#f0a95d'], stars: 0, sun: '#ffe0a8', grass: '#86b84e', d1: '#8b5a2b', d2: '#3a2415', m1: '#3d4b6e', m2: '#2c3657', cloud: '255,214,170', ca: 0.5 },
+  { sky: ['#5fb0e6', '#dcf2fb'], stars: 0, sun: '#fff7cf', grass: '#5fa83e', d1: '#a5703a', d2: '#4a2f19', m1: '#8aa9c8', m2: '#6f8dac', cloud: '255,255,255', ca: 0.8 },
+  { sky: ['#04050d', '#1d2150'], stars: 1, sun: '#e8ecff', grass: '#3f8060', d1: '#4d4d68', d2: '#1b1b2b', m1: '#1b1e3d', m2: '#12142b', cloud: '120,130,190', ca: 0.3 },
+  { sky: ['#3a0f1a', '#f2762e'], stars: 0, sun: '#ffd27a', grass: '#c58a42', d1: '#9a4a2a', d2: '#3a1810', m1: '#5b2432', m2: '#40161f', cloud: '255,170,120', ca: 0.4 },
+];
+
+/* ---------- state ---------- */
+let state = 'menu', players = [], cur = 0, wind = 0, round = 1;
+const ROUNDS = 5;
+const T = new Float32Array(W);
+let projs = [], expl = [], parts = [], clouds = [];
+let dirty = true, shake = 0, flash = 0, frame = 0, theme = THEMES[0], turnFlash = 0, timer = 0, wsel = 0;
+let shopQueue = [], shopCur = null, banner = '';
+const mk = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
+const bgc = mk(), tc = mk(), tex = mk(), sc = mk(), vig = mk();
+const bctx = bgc.getContext('2d'), tctx = tc.getContext('2d'), xctx = tex.getContext('2d'), sctx = sc.getContext('2d');
+const cloudSprite = document.createElement('canvas'); cloudSprite.width = 300; cloudSprite.height = 100;
+(function () {
+  const v = vig.getContext('2d'), g = v.createRadialGradient(W / 2, H / 2, H * 0.45, W / 2, H / 2, H * 0.95);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.5)');
+  v.fillStyle = g; v.fillRect(0, 0, W, H);
+})();
+function isMine(t) { return !!t && t.human && (NET.mode === 'local' || t.owner === NET.myId); }
+
+/* ---------- terrain ---------- */
+function markT() { dirty = true; tver++; }
+// Ландшафты: 0 холмы, 1 горы, 2 равнина, 3 каньон, 4 одна гора; -1 = случайный каждый раунд.
+let mapKind = -1, themePick = -1;
+function genTerrain(kind) {
+  const k = kind === undefined || kind < 0 ? Math.floor(Math.random() * 5) : kind;
+  const p = [R(0, 6.28), R(0, 6.28), R(0, 6.28), R(0, 6.28)];
+  const amp = R(0.8, 1.25), pc = W / 2 + R(-140, 140);
+  for (let x = 0; x < W; x++) {
+    const n = Math.sin(x * 0.021 + p[2]) * 18 + Math.sin(x * 0.05 + p[3]) * 6;
+    let y;
+    if (k === 1) y = 575 - Math.pow(Math.abs(Math.sin(x * 0.0062 + p[0])), 1.4) * 300 * amp - Math.abs(Math.sin(x * 0.014 + p[1])) * 60 + n * 1.3;
+    else if (k === 2) y = 545 + Math.sin(x * 0.004 + p[0]) * 14 + Math.sin(x * 0.02 + p[2]) * 5 + Math.sin(x * 0.05 + p[3]) * 2;
+    else if (k === 3) {
+      const d = Math.abs(x - W / 2) / (W / 2), t = clamp((d - 0.12) / 0.3, 0, 1);
+      y = 625 - t * t * (3 - 2 * t) * 290 + Math.sin(x * 0.01 + p[1]) * 14 + n * 0.7;
+    } else if (k === 4) y = 610 - Math.exp(-Math.pow((x - pc) / 190, 2)) * 410 + Math.sin(x * 0.008 + p[0]) * 22 + n;
+    else y = 470 + Math.sin(x * 0.0035 + p[0]) * 80 * amp + Math.sin(x * 0.009 + p[1]) * 42 * amp + n;
+    T[x] = clamp(y, k === 1 || k === 4 ? 150 : 230, 650);
+  }
+  markT();
+}
+function encodeT() {
+  const b = new Uint8Array(W * 2);
+  for (let x = 0; x < W; x++) { const v = Math.round(T[x] * 16); b[x * 2] = v >> 8; b[x * 2 + 1] = v & 255; }
+  let s = ''; for (let i = 0; i < b.length; i += 4096) s += String.fromCharCode.apply(null, b.subarray(i, i + 4096));
+  return btoa(s);
+}
+function decodeT(str) {
+  const s = atob(str);
+  for (let x = 0; x < W; x++) T[x] = ((s.charCodeAt(x * 2) << 8) | s.charCodeAt(x * 2 + 1)) / 16;
+  dirty = true;
+}
+function ground(x) {
+  const g = i => T[clamp(Math.round(i), 0, W - 1)];
+  return (g(x - 10) + 2 * g(x) + g(x + 10)) / 4;
+}
+function carve(cx, cy, r) {
+  const x0 = Math.max(0, Math.floor(cx - r)), x1 = Math.min(W - 1, Math.ceil(cx + r));
+  for (let x = x0; x <= x1; x++) {
+    const dx = x - cx, dy = Math.sqrt(Math.max(0, r * r - dx * dx));
+    const top = cy - dy, bot = cy + dy, s = T[x];
+    if (bot <= s) continue;
+    T[x] = top <= s ? Math.min(bot, H - 1) : Math.min(s + (bot - top), H - 1);
+  }
+  markT();
+}
+function addDirt(cx, cy, r) {
+  const x0 = Math.max(0, Math.floor(cx - r)), x1 = Math.min(W - 1, Math.ceil(cx + r));
+  for (let x = x0; x <= x1; x++) {
+    const dx = x - cx, dy = Math.sqrt(Math.max(0, r * r - dx * dx));
+    T[x] = Math.max(60, T[x] - dy * 0.95);
+  }
+  markT();
+}
+function renderTexture() {
+  xctx.clearRect(0, 0, W, H);
+  for (let i = 0; i < 16; i++) {
+    const y0 = 250 + i * 32 + R(-8, 8), ph = R(0, 6), amp = R(3, 10), f = R(0.004, 0.012);
+    xctx.strokeStyle = `rgba(0,0,0,${R(0.05, 0.15)})`; xctx.lineWidth = R(2, 8); xctx.beginPath();
+    for (let x = 0; x <= W; x += 12) xctx.lineTo(x, y0 + Math.sin(x * f + ph) * amp);
+    xctx.stroke();
+  }
+  for (let i = 0; i < 16000; i++) {
+    xctx.fillStyle = Math.random() < 0.45 ? `rgba(255,235,200,${R(0.04, 0.17)})` : `rgba(0,0,0,${R(0.06, 0.22)})`;
+    const s = R(1, 3.2); xctx.fillRect(R(0, W), R(180, H), s, s);
+  }
+  for (let i = 0; i < 170; i++) {
+    const x = R(0, W), y = R(280, H), rx = R(3, 10), ry = rx * R(0.55, 0.9), rot = R(0, 3);
+    xctx.fillStyle = 'rgba(0,0,0,0.28)'; xctx.beginPath(); xctx.ellipse(x + 1.5, y + 1.5, rx, ry, rot, 0, 6.3); xctx.fill();
+    xctx.fillStyle = `rgba(210,200,180,${R(0.1, 0.3)})`; xctx.beginPath(); xctx.ellipse(x, y, rx, ry, rot, 0, 6.3); xctx.fill();
+  }
+}
+function renderTerrain() {
+  tctx.globalCompositeOperation = 'source-over';
+  tctx.clearRect(0, 0, W, H);
+  tctx.save();
+  tctx.beginPath(); tctx.moveTo(0, H);
+  for (let x = 0; x < W; x++) tctx.lineTo(x, T[x]);
+  tctx.lineTo(W - 1, H); tctx.closePath();
+  const gr = tctx.createLinearGradient(0, 220, 0, H);
+  gr.addColorStop(0, theme.d1); gr.addColorStop(1, theme.d2);
+  tctx.fillStyle = gr; tctx.fill(); tctx.clip();
+  tctx.drawImage(tex, 0, 0);
+  const sh = tctx.createLinearGradient(0, 0, 0, H);
+  sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,0.35)');
+  tctx.fillStyle = sh; tctx.fillRect(0, 0, W, H);
+  tctx.restore();
+  const surf = new Path2D(); surf.moveTo(0, T[0]);
+  for (let x = 1; x < W; x++) surf.lineTo(x, T[x]);
+  tctx.lineJoin = 'round'; tctx.lineCap = 'round';
+  tctx.strokeStyle = shade(theme.grass, -0.6); tctx.lineWidth = 13; tctx.stroke(surf);
+  tctx.save(); tctx.translate(0, -1);
+  tctx.strokeStyle = shade(theme.grass, -0.15); tctx.lineWidth = 8; tctx.stroke(surf);
+  tctx.translate(0, -2);
+  tctx.strokeStyle = shade(theme.grass, 0.25); tctx.lineWidth = 3; tctx.stroke(surf);
+  tctx.restore();
+  tctx.globalCompositeOperation = 'source-atop';
+  tctx.drawImage(sc, 0, 0);
+  tctx.globalCompositeOperation = 'source-over';
+  dirty = false;
+}
+function renderBackground() {
+  const g = bctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, theme.sky[0]); g.addColorStop(1, theme.sky[1]);
+  bctx.fillStyle = g; bctx.fillRect(0, 0, W, H);
+  if (theme.stars) {
+    for (let i = 0; i < 190; i++) {
+      bctx.fillStyle = `rgba(255,255,255,${R(0.3, 0.95)})`;
+      const s = Math.random() < 0.12 ? 2 : 1; bctx.fillRect(R(0, W), R(0, 400), s, s);
+    }
+  }
+  const sx = R(180, W - 180), sy = R(110, 200);
+  const sg = bctx.createRadialGradient(sx, sy, 6, sx, sy, 190);
+  sg.addColorStop(0, theme.sun); sg.addColorStop(0.12, theme.sun); sg.addColorStop(1, 'rgba(255,255,255,0)');
+  bctx.globalAlpha = 0.85; bctx.fillStyle = sg; bctx.beginPath(); bctx.arc(sx, sy, 190, 0, 6.3); bctx.fill();
+  bctx.globalAlpha = 1; bctx.fillStyle = theme.sun; bctx.beginPath(); bctx.arc(sx, sy, 34, 0, 6.3); bctx.fill();
+  const layer = (base, amp, col, f, haze) => {
+    const p1 = R(0, 6), p2 = R(0, 6);
+    bctx.fillStyle = col; bctx.beginPath(); bctx.moveTo(0, H);
+    for (let x = 0; x <= W; x += 6) bctx.lineTo(x, base - Math.abs(Math.sin(x * f + p1)) * amp - Math.sin(x * f * 2.3 + p2) * amp * 0.3);
+    bctx.lineTo(W, H); bctx.closePath(); bctx.fill();
+    const hz = bctx.createLinearGradient(0, base - amp, 0, base + 60);
+    hz.addColorStop(0, 'rgba(255,255,255,0)'); hz.addColorStop(1, `rgba(${theme.cloud},${haze})`);
+    bctx.fillStyle = hz; bctx.fill();
+  };
+  layer(400, 180, theme.m1, 0.0035, 0.35);
+  layer(480, 120, theme.m2, 0.006, 0.2);
+  const c = cloudSprite.getContext('2d'); c.clearRect(0, 0, 300, 100);
+  for (let i = 0; i < 9; i++) {
+    const x = 50 + i * 24 + R(-8, 8), y = 55 + R(-14, 12), r = R(22, 38);
+    const cg = c.createRadialGradient(x, y, 0, x, y, r);
+    cg.addColorStop(0, `rgba(${theme.cloud},${theme.ca})`); cg.addColorStop(1, `rgba(${theme.cloud},0)`);
+    c.fillStyle = cg; c.beginPath(); c.arc(x, y, r, 0, 6.3); c.fill();
+  }
+  clouds = [];
+  for (let i = 0; i < 7; i++) clouds.push({ x: R(-100, W), y: R(30, 280), s: R(0.6, 1.5), sp: R(0.05, 0.2) });
+}
+
+/* ---------- game setup ---------- */
+function makePlayers(cfg) {
+  return cfg.map((c, i) => ({
+    id: i, human: c.human, owner: c.owner, name: c.name, color: COLORS[i],
+    money: 1000, wins: 0, score: 0, inv: [Infinity, 0, 0, 0, 0, 0, 0, 0, 0], shields: [1, 0, 0], sty: -1,
+    x: 0, y: 0, hp: 100, alive: true, vy: 0, falling: false, fallStart: 0, tilt: 0,
+    angle: 60, power: 50, wpn: 0, shield: 0, ai: null,
+  }));
+}
+function newGame(cfg) { players = makePlayers(cfg); round = 1; newRound(); }
+function newRound() {
+  themeIdx = themePick >= 0 ? themePick : Math.floor(Math.random() * THEMES.length); theme = THEMES[themeIdx]; roundSeq++;
+  genTerrain(mapKind); renderTexture();
+  sctx.clearRect(0, 0, W, H);
+  const n = players.length, seg = (W - 160) / n;
+  const order = players.map((_, i) => i).sort(() => Math.random() - 0.5);
+  order.forEach((pi, slot) => {
+    const p = players[pi];
+    p.x = Math.round(80 + seg * (slot + 0.5) + R(-seg * 0.22, seg * 0.22));
+    let sum = 0, c = 0;
+    for (let x = p.x - 18; x <= p.x + 18; x++) { sum += T[clamp(x, 0, W - 1)]; c++; }
+    const lvl = sum / c;
+    for (let x = p.x - 18; x <= p.x + 18; x++) T[clamp(x, 0, W - 1)] = lvl;
+    p.y = lvl; p.hp = 100; p.alive = true; p.vy = 0; p.falling = false; p.tilt = 0;
+    p.angle = p.x < W / 2 ? 60 : 120; p.power = 50; p.wpn = 0; p.shield = 0; p.aiT = null; p.aiShots = 0;
+    p.sty = -1; p.shTurns = 0;
+  });
+  markT();
+  renderBackground(); renderTerrain();
+  projs = []; expl = []; parts = [];
+  wind = Math.round(R(-8, 8) * 10) / 10;
+  saveRoundStart((round - 1) % n);
+  startTurn((round - 1) % n);
+}
+function startTurn(i) {
+  cur = i; state = 'aim'; turnFlash = 90; ui.wm = false;
+  for (const q of players) { q.mvDir = 0; }
+  players[i].moved = 0; players[i].moveAcc = 0;
+  const t = players[i];
+  if (t.inv[t.wpn] <= 0) t.wpn = 0;
+  aimTimer = 60 * 50;
+  if (t.shield > 0 && --t.shTurns <= 0) { t.shield = 0; t.sty = -1; pop(t.x, t.y - 54, 'щит снят', '#9aa6bb'); }
+  if (!t.human) aiPlan(t);
+}
+function nextTurn() {
+  const alive = players.filter(p => p.alive);
+  const humansLeft = alive.some(p => p.human), hadHumans = players.some(p => p.human);
+  if (alive.length <= 1 || (hadHumans && !humansLeft)) {
+    alive.sort((a, b) => b.hp - a.hp);
+    return roundEnd(alive[0]);
+  }
+  let i = cur;
+  do { i = (i + 1) % players.length; } while (!players[i].alive);
+  wind = clamp(Math.round((wind + R(-1.6, 1.6)) * 10) / 10, -10, 10);
+  startTurn(i);
+}
+function roundEnd(winner) {
+  players.forEach(p => p.money += 300);
+  if (winner) { winner.wins++; winner.money += 1000; banner = 'Раунд за: ' + winner.name; }
+  else banner = 'Ничья';
+  state = 'roundover'; timer = 150;
+}
+function afterRound() {
+  if (round >= ROUNDS) { state = 'gameover'; return; }
+  round++;
+  players.filter(p => !p.human).forEach(aiShop);
+  if (NET.mode === 'local') { shopQueue = players.filter(p => p.human); nextShop(); }
+  else {
+    shopWait = new Set(players.filter(p => p.human).map(p => p.id)); shopTimer = 60 * 40;
+    shopCur = players.find(p => isMine(p)); shopDoneLocal = false; state = 'shop';
+  }
+}
+function nextShop() {
+  shopCur = shopQueue.shift();
+  if (!shopCur) return newRound();
+  state = 'shop';
+}
+function aiShop(p) {
+  for (let k = 0; k < 6; k++) {
+    const aff = SHOP.filter(s => s.price <= p.money);
+    if (!aff.length) break;
+    const s = aff[Math.floor(Math.random() * aff.length)];
+    p.money -= s.price; s.give(p);
+  }
+}
+function buyFor(p, i, quiet) {
+  const s = SHOP[i];
+  if (p && s && p.money >= s.price) { p.money -= s.price; s.give(p); if (!quiet) tone(600, 1100, 0.1, 0.12, 'triangle'); return true; }
+  if (!quiet) tone(150, 100, 0.12, 0.12, 'square');
+  return false;
+}
+function buyItem(i) {
+  if (NET.mode === 'client') { netSend({ t: 'buy', i }); tone(600, 1100, 0.08, 0.1, 'triangle'); return; }
+  buyFor(shopCur, i);
+}
+function shopDone() {
+  if (NET.mode === 'local') return nextShop();
+  shopDoneLocal = true;
+  if (NET.mode === 'client') netSend({ t: 'done' }); else shopWait.delete(shopCur.id);
+}
+
+/* ---------- weapons & damage ---------- */
+function cycleWpn(t, d) {
+  let i = t.wpn, g = 0;
+  do { i = (i + d + NW) % NW; g++; } while (t.inv[i] <= 0 && g < 20);
+  t.wpn = i;
+}
+function pivot(t) { return { x: t.x + Math.sin(t.tilt) * 15, y: t.y - Math.cos(t.tilt) * 15 }; }
+function tip(t, ang) {
+  const a = (ang === undefined ? t.angle : ang) * Math.PI / 180, p = pivot(t);
+  return { x: p.x + Math.cos(a) * 26, y: p.y - Math.sin(a) * 26 };
+}
+function muzzle(t) {
+  const pt = tip(t), a = t.angle * Math.PI / 180;
+  expl.push({ x: pt.x, y: pt.y, r: 16, t: 0, dur: 8, kind: 'flash' });
+  for (let i = 0; i < 8; i++) addPart({ x: pt.x, y: pt.y, vx: Math.cos(a) * R(1, 3) + R(-0.8, 0.8), vy: -Math.sin(a) * R(1, 3) + R(-0.8, 0.8), life: R(10, 22), max: 22, kind: 'spark', c: '#ffd070', size: 2 });
+  addSmoke(pt.x, pt.y, 8, 0.5);
+  shake = Math.max(shake, 2);
+  tone(200, 55, 0.2, 0.16, 'sawtooth'); noise(0.14, 0.22, 1600);
+}
+function fire(t) {
+  const w = WEAPONS[t.wpn], n = w.n || 1;
+  for (let k = 0; k < n; k++) {
+    const ang = t.angle + (n > 1 ? (k - (n - 1) / 2) * 4.5 : 0), a = ang * Math.PI / 180, v = w.fixed || t.power * 0.13 * w.vm, pt = tip(t, ang);
+    projs.push({ x: pt.x, y: pt.y, vx: Math.cos(a) * v, vy: -Math.sin(a) * v, w, owner: t.id, age: 0, type: w.type, gm: w.gm, nw: !!w.nw, split: false, trail: [], rolling: false });
+  }
+  if (t.inv[t.wpn] !== Infinity) { t.inv[t.wpn]--; if (t.inv[t.wpn] <= 0) t.wpn = 0; }
+  muzzle(t);
+  if (NET.mode === 'host') evq.push({ k: 'mz', i: t.id });
+  state = 'fly'; ui.wm = false;
+}
+function doFire(t) {
+  if (NET.mode === 'client') { sendAim(t, true); netSend({ t: 'fire' }); } else fire(t);
+}
+function explode(x, y, w, owner) {
+  if (w.type === 'dirt') { addDirt(x, y, w.r); fx(x, y, w.r * 0.7, 'dirt'); return; }
+  if (w.type === 'digger') {
+    for (let i = 0; i < 6; i++) carve(x + R(-3, 3), y + i * 13, 17);
+    damageAround(x, y, 34, w.dmg, owner); fx(x, y, 30, 'dig'); return;
+  }
+  carve(x, y, w.r);
+  damageAround(x, y, w.r, w.dmg, owner);
+  fx(x, y, w.r);
+}
+function damageAround(x, y, r, dmg, owner) {
+  for (const t of players) {
+    if (!t.alive) continue;
+    const d = Math.hypot(t.x - x, (t.y - 9) - y), reach = r + 14;
+    if (d < reach) hit(t, dmg * clamp((1 - d / reach) * 1.2, 0, 1), owner);
+  }
+}
+// Очки: 1 очко за каждую единицу снятого урона (щит тоже считается), +50 за уничтожение.
+function hit(t, dmg, owner) {
+  if (dmg <= 0 || !t.alive) return;
+  let real = 0;
+  if (t.shield > 0) { const a = Math.min(t.shield, dmg); t.shield -= a; dmg -= a; real += a; if (t.shield <= 0.5) { t.shield = 0; t.sty = -1; } }
+  real += Math.min(Math.max(dmg, 0), t.hp);
+  t.hp -= dmg;
+  const o = players[owner], foe = !!o && owner !== t.id;
+  if (foe) {
+    o.money += Math.round(real * 8);
+    const pts = Math.round(real);
+    if (pts > 0) { o.score += pts; pop(t.x, t.y - 54, '+' + pts, o.color); }
+  }
+  if (t.hp <= 0 && t.alive) {
+    t.hp = 0; t.alive = false;
+    if (foe) { o.money += 300; o.score += 50; pop(t.x, t.y - 54, '+50 уничтожен', o.color); }
+    carve(t.x, t.y - 6, 24); fx(t.x, t.y - 8, 50, null, t.color);
+  }
+}
+let pops = [];
+function pop(x, y, s, c) {
+  if (NET.mode === 'host') evq.push({ k: 'pop', x: Math.round(x), y: Math.round(y), s, c });
+  const near = pops.filter(p => Math.abs(p.x - x) < 40 && p.life > 40).length;
+  pops.push({ x: clamp(x, 60, W - 60), y: Math.max(40, y - near * 22), s, c, life: 80 });
+}
+function addPart(p) { if (parts.length < 1100) parts.push(p); }
+function addSmoke(x, y, n, a) {
+  for (let i = 0; i < n; i++) addPart({ x: x + R(-3, 3), y: y + R(-3, 3), vx: R(-0.4, 0.4), vy: R(-0.9, -0.2), life: R(30, 60), max: 60, kind: 'smoke', size: R(5, 10), a });
+}
+function fx(x, y, r, kind, col) {
+  if (NET.mode === 'host') evq.push({ k: 'fx', x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, r, kd: kind || null, c: col || null });
+  expl.push({ x, y, r, t: 0, dur: 26 + r * 0.38, kind: kind || 'fire' });
+  if (kind !== 'dirt') {
+    sctx.save(); const g = sctx.createRadialGradient(x, y, 0, x, y, r * 1.25);
+    g.addColorStop(0, 'rgba(10,6,4,0.75)'); g.addColorStop(0.6, 'rgba(10,6,4,0.4)'); g.addColorStop(1, 'rgba(10,6,4,0)');
+    sctx.fillStyle = g; sctx.beginPath(); sctx.arc(x, y, r * 1.25, 0, 6.3); sctx.fill(); sctx.restore();
+    dirty = true;
+  }
+  const ns = Math.floor(r * 0.9);
+  for (let i = 0; i < ns && kind !== 'dirt'; i++) {
+    const a = R(0, 6.28), s = R(0.8, 2.2 + r * 0.07);
+    addPart({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 1, life: R(20, 55), max: 55, kind: 'spark', size: R(1.5, 3.5),
+      c: col && Math.random() < 0.4 ? col : (Math.random() < 0.5 ? '#ffc040' : '#ff6a2a') });
+  }
+  const nd = Math.floor(r * 0.5);
+  for (let i = 0; i < nd; i++) {
+    const a = R(-3.0, -0.15), s = R(1.5, 3 + r * 0.06);
+    addPart({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 90, max: 90, kind: 'debris', size: R(2, 4.5), c: Math.random() < 0.5 ? theme.d1 : theme.grass });
+  }
+  if (kind !== 'dirt') addSmoke(x, y, Math.floor(r / 6) + 3, 0.45);
+  shake = Math.max(shake, r * 0.13);
+  if (r > 60) flash = Math.max(flash, 0.55);
+  noise(0.35 + r / 140, 0.5, 500 + r * 6);
+  if (r > 60) tone(90, 30, 0.5, 0.2, 'sine');
+}
+function nearTank(p, rad) {
+  for (const t of players) {
+    if (!t.alive) continue;
+    if (t.shield > 0 && t.id !== p.owner) { if (Math.hypot(p.x - t.x, p.y - (t.y - 10)) < SR) return true; continue; }
+    if ((t.id !== p.owner || p.age > 12) && Math.hypot(p.x - t.x, p.y - (t.y - 9)) < rad) return true;
+  }
+  return false;
+}
+// Отражатель: снаряд отскакивает от купола и «переходит» к владельцу щита.
+function deflect(p) {
+  for (const t of players) {
+    if (!t.alive || t.shield <= 0 || t.sty < 0 || !SHIELDS[t.sty].deflect || t.id === p.owner) continue;
+    const dx = p.x - t.x, dy = p.y - (t.y - 10), d = Math.hypot(dx, dy);
+    if (d >= SR || d < 0.01) continue;
+    const nx = dx / d, ny = dy / d, dot = p.vx * nx + p.vy * ny;
+    if (dot < 0) { p.vx = (p.vx - 2 * dot * nx) * 0.9; p.vy = (p.vy - 2 * dot * ny) * 0.9; }
+    p.x = t.x + nx * (SR + 1); p.y = t.y - 10 + ny * (SR + 1);
+    p.owner = t.id; p.age = 0;
+    t.shield -= 15; if (t.shield <= 0) { t.shield = 0; t.sty = -1; }
+    shieldFlash(p.x, p.y, SHIELDS[2].col);
+    return;
+  }
+}
+function shieldFlash(x, y, col) {
+  if (NET.mode === 'host') evq.push({ k: 'sf', x: Math.round(x), y: Math.round(y), c: col });
+  expl.push({ x, y, r: 22, t: 0, dur: 12, kind: 'flash' });
+  for (let i = 0; i < 10; i++) { const a = R(0, 6.28), sp = R(1, 3); addPart({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: R(10, 24), max: 24, kind: 'spark', c: `rgb(${col})`, size: 2 }); }
+  tone(900, 300, 0.15, 0.1, 'triangle');
+}
+function activateShield(t, j) {
+  if (!t || j < 0 || j >= NS || t.shields[j] <= 0) return false;
+  t.shields[j]--; t.shield = SHIELDS[j].hp; t.sty = j; t.shTurns = 2;
+  shieldFlash(t.x, t.y - 10, SHIELDS[j].col);
+  return true;
+}
+function bestShield(t) { return [1, 2, 0].find(j => t.shields[j] > 0); }
+function useShield(j, quick) {
+  const t = players[cur];
+  if (!canAct() || j === undefined || t.shields[j] <= 0 || (quick && t.shield > 0)) { tone(150, 100, 0.12, 0.12, 'square'); return; }
+  if (NET.mode === 'client') netSend({ t: 'shield', j }); else activateShield(t, j);
+  ui.wm = false;
+}
+function stepProj(p, spawn) {
+  if (p.rolling) return rollStep(p);
+  const SUB = 4, dt = 1 / SUB;
+  for (let s = 0; s < SUB; s++) {
+    p.x += p.vx * dt; p.y += p.vy * dt; p.vy += G * p.gm * dt; if (!p.nw) p.vx += wind * WA * dt; p.age += dt;
+    deflect(p);
+    if (p.type === 'mirv' && !p.split && p.vy > 0) {
+      for (let i = -2; i <= 2; i++) spawn.push({ x: p.x, y: p.y, vx: p.vx + i * 0.9, vy: p.vy * 0.5, w: { r: 26, dmg: 28, type: 'std' }, owner: p.owner, age: 0, type: 'std', gm: 1, split: true, trail: [], rolling: false });
+      tone(500, 900, 0.12, 0.1, 'triangle');
+      return true;
+    }
+    if (p.x >= 0 && p.x < W && p.y >= T[p.x | 0]) {
+      if (p.type === 'roller') { p.rolling = true; p.dir = Math.sign(p.vx) || 1; p.life = 220; p.y = T[p.x | 0] - 3; p.age = 0; return false; }
+      explode(p.x, p.y, p.w, p.owner); return true;
+    }
+    if (nearTank(p, 13)) { explode(p.x, p.y, p.w, p.owner); return true; }
+  }
+  p.trail.push({ x: p.x, y: p.y }); if (p.trail.length > 14) p.trail.shift();
+  if (frame % 2 === 0) addPart({ x: p.x, y: p.y, vx: R(-0.15, 0.15), vy: R(-0.2, 0.05), life: 28, max: 28, kind: 'smoke', size: 3.5, a: 0.3 });
+  return p.x < -250 || p.x > W + 250 || p.y > H + 60 || p.age > 2500;
+}
+function rollStep(p) {
+  for (let k = 0; k < 2; k++) {
+    p.x += p.dir * 1.5; p.age++;
+    if (p.x < 2 || p.x > W - 3) { explode(clamp(p.x, 2, W - 3), p.y, p.w, p.owner); return true; }
+    const xi = p.x | 0; p.y = T[xi] - 3;
+    const ahead = T[clamp(xi + p.dir * 4, 0, W - 1)];
+    if (ahead < T[xi] - 6 || nearTank(p, 17) || --p.life <= 0) { explode(p.x, p.y, p.w, p.owner); return true; }
+  }
+  if (frame % 3 === 0) addPart({ x: p.x, y: p.y + 2, vx: R(-0.3, 0.3), vy: R(-0.6, -0.1), life: 24, max: 24, kind: 'debris', size: 2, c: theme.d1 });
+  return false;
+}
+
+/* ---------- AI ---------- */
+// Уровни ИИ: разброс угла (°) и силы на первом выстреле по цели, ошибка оценки ветра,
+// насколько каждый следующий выстрел по той же цели точнее (decay) и предел точности (floor).
+const AI_LV = [
+  { a: 11, p: 15, w: 4.5, decay: 0.78, floor: 0.35 },
+  { a: 7, p: 10, w: 3, decay: 0.68, floor: 0.2 },
+  { a: 3.5, p: 5, w: 1.2, decay: 0.55, floor: 0.12 },
+];
+let aiLevel = 1;
+function simulate(x, y, ang, pow, wv) {
+  const a = ang * Math.PI / 180, v = pow * 0.13, ww = wv === undefined ? wind : wv;
+  let vx = Math.cos(a) * v, vy = -Math.sin(a) * v, px = x, py = y;
+  for (let i = 0; i < 9000; i++) {
+    px += vx * 0.25; py += vy * 0.25; vy += G * 0.25; vx += ww * WA * 0.25;
+    if (px >= 0 && px < W && py >= T[px | 0]) return { x: px, y: py };
+    if (px < -250 || px > W + 250 || py > H + 60) return { x: px, y: py };
+  }
+  return { x: px, y: py };
+}
+function aiPlan(t) {
+  const foes = players.filter(p => p.alive && p !== t);
+  if (!foes.length) return;
+  foes.sort((a, b) => Math.abs(a.x - t.x) - Math.abs(b.x - t.x));
+  let f = t.aiT && t.aiT.alive && foes.includes(t.aiT) && Math.random() < 0.85 ? t.aiT
+    : (Math.random() < 0.7 ? foes[0] : foes[Math.floor(Math.random() * foes.length)]);
+  if (f !== t.aiT) { t.aiT = f; t.aiShots = 0; }
+  const L = AI_LV[aiLevel], k = Math.max(L.floor, Math.pow(L.decay, t.aiShots || 0));
+  t.aiShots = (t.aiShots || 0) + 1;
+  if (t.shield <= 0 && bestShield(t) !== undefined && Math.random() < 0.8) activateShield(t, bestShield(t));
+  const opts = [0, 1, 2, 3, 6].filter(i => t.inv[i] > 0);
+  t.wpn = Math.random() < 0.5 ? opts[Math.floor(Math.random() * opts.length)] : 0;
+  const wv = wind + R(-L.w, L.w) * (0.4 + 0.6 * k);
+  let best = 1e9, ba = 60, bp = 50;
+  const right = f.x > t.x;
+  for (let i = 0; i < 500; i++) {
+    const a = right ? R(8, 110) : R(70, 172), pw = R(25, 100), pt = tip(t, a);
+    const S = simulate(pt.x, pt.y, a, pw, wv), d = Math.hypot(S.x - f.x, S.y - (f.y - 9));
+    if (d < best) { best = d; ba = a; bp = pw; }
+  }
+  const ea = L.a * k, ep = L.p * k;
+  t.ai = { a: clamp(ba + R(-ea, ea), 0, 180), p: clamp(bp + R(-ep, ep), 5, 100), wait: 45 };
+}
+function aiStep(t) {
+  const ai = t.ai; if (!ai) return nextTurn();
+  t.angle += clamp(ai.a - t.angle, -1.3, 1.3);
+  t.power += clamp(ai.p - t.power, -0.9, 0.9);
+  if (Math.abs(ai.a - t.angle) < 0.01 && Math.abs(ai.p - t.power) < 0.01) { if (--ai.wait <= 0) { t.ai = null; fire(t); } }
+}
+
+/* ---------- network ---------- */
+function netSend(m, to) {
+  if (NET.tr === 'p2p') {
+    const ok = c => c && c.open && !(c.dataChannel && c.dataChannel.bufferedAmount > 1000000);
+    if (NET.mode === 'host') {
+      if (!NET.conns) return;
+      const pkt = { t: 'm', m };
+      if (to === undefined || to === 'all') { for (const c of NET.conns.values()) if (ok(c)) c.send(pkt); }
+      else { const c = NET.conns.get(to); if (ok(c)) c.send(pkt); }
+    } else if (ok(NET.conn)) NET.conn.send({ t: 'm', m });
+    return;
+  }
+  const ws = NET.ws; if (!ws || ws.readyState !== 1 || ws.bufferedAmount > 400000) return;
+  ws.send(JSON.stringify(NET.mode === 'host' ? { t: 'm', to: to === undefined ? 'all' : to, m } : { t: 'm', m }));
+}
+function sendAim(t, force) {
+  const s = Math.round(t.angle * 10) + ',' + Math.round(t.power * 10) + ',' + t.wpn;
+  if (s === lastAim && !force) return;
+  lastAim = s; netSend({ t: 'aim', a: t.angle, pw: t.power, w: t.wpn });
+}
+function buildSnap() {
+  const s = {
+    t: 's', rid: roundSeq, th: themeIdx, st: state, cur, wind, round, bn: banner, tf: turnFlash > 0 ? 1 : 0,
+    at: NET.mode !== 'local' && state === 'aim' && players[cur] && players[cur].human ? Math.ceil(aimTimer / 60) : 0,
+    stm: state === 'shop' ? Math.ceil(shopTimer / 60) : 0, sw: shopWait.size,
+    pl: players.map(p => ({
+      x: +p.x.toFixed(1), y: +p.y.toFixed(1), hp: Math.round(p.hp * 10) / 10, a: +p.angle.toFixed(1), pw: +p.power.toFixed(1), w: p.wpn,
+      tl: +p.tilt.toFixed(3), sh: Math.round(p.shield), al: p.alive ? 1 : 0, m: p.money, wn: p.wins, sc: p.score, sty: p.sty, stn: p.shTurns, shs: p.shields, mvd: p.moved || 0, hu: p.human ? 1 : 0,
+      inv: p.inv.map(v => v === Infinity ? -1 : v),
+    })),
+    pr: projs.map(p => [+p.x.toFixed(1), +p.y.toFixed(1), +p.vx.toFixed(2), +p.vy.toFixed(2), p.rolling ? 1 : 0, p.split ? 1 : 0, p.gm, p.nw ? 1 : 0]),
+    ev: evq,
+  };
+  evq = [];
+  if (tSent !== tver) { s.T = encodeT(); tSent = tver; }
+  return s;
+}
+function applySnap(s) {
+  if (s.rid !== lastRid) {
+    lastRid = s.rid; themeIdx = s.th; theme = THEMES[themeIdx]; renderTexture(); sctx.clearRect(0, 0, W, H);
+    renderBackground(); projs = []; expl = []; parts = []; dirty = true;
+  }
+  if (s.T) decodeT(s.T);
+  const prev = state;
+  state = s.st; cur = s.cur; wind = s.wind; round = s.round; banner = s.bn || '';
+  if (s.tf && !netTf) turnFlash = 90;
+  netTf = s.tf; aimLeft = s.at || 0; shopTimerShow = s.stm || 0; shopWaitN = s.sw || 0;
+  s.pl.forEach((q, i) => {
+    const p = players[i]; if (!p) return;
+    const keep = state === 'aim' && i === cur && isMine(p);
+    p.x = q.x; p.y = q.y; p.hp = q.hp; p.tilt = q.tl; p.shield = q.sh; p.alive = !!q.al; p.money = q.m; p.wins = q.wn; p.score = q.sc || 0; p.sty = q.sty; p.shTurns = q.stn || 0; p.moved = q.mvd || 0; p.shields = q.shs || [0, 0, 0];
+    p.human = !!q.hu; p.inv = q.inv.map(v => v < 0 ? Infinity : v);
+    if (!keep) { p.angle = q.a; p.power = q.pw; p.wpn = q.w; }
+  });
+  projs = s.pr.map(q => ({ x: q[0], y: q[1], vx: q[2], vy: q[3], rolling: !!q[4], split: !!q[5], gm: q[6], nw: !!q[7], trail: [] }));
+  for (const e of s.ev || []) {
+    if (e.k === 'fx') fx(e.x, e.y, e.r, e.kd || undefined, e.c || undefined);
+    else if (e.k === 'mz' && players[e.i]) muzzle(players[e.i]);
+    else if (e.k === 'pop') pop(e.x, e.y, e.s, e.c);
+    else if (e.k === 'sf') shieldFlash(e.x, e.y, e.c);
+  }
+  if (state !== 'aim') ui.wm = false;
+  if (state === 'shop' && prev !== 'shop') { shopCur = players.find(p => isMine(p)); shopDoneLocal = false; }
+}
+function hostMsg(from, m) {
+  const p = players.find(x => x.human && x.owner === from); if (!p) return;
+  if (m.t === 'aim' && state === 'aim' && cur === p.id) {
+    p.angle = clamp(+m.a || 0, 0, 180); p.power = clamp(+m.pw || 5, 5, 100);
+    if (m.w >= 0 && m.w < NW && p.inv[m.w] > 0) p.wpn = m.w;
+  } else if (m.t === 'fire' && state === 'aim' && cur === p.id) fire(p);
+  else if (m.t === 'shield' && state === 'aim' && cur === p.id) activateShield(p, +m.j);
+  else if (m.t === 'mv' && state === 'aim' && cur === p.id) p.mvDir = clamp(Math.round(+m.d) || 0, -1, 1);
+  else if (m.t === 'buy' && state === 'shop' && shopWait.has(p.id)) buyFor(p, +m.i, true);
+  else if (m.t === 'done' && state === 'shop') shopWait.delete(p.id);
+}
+function onNet(msg) {
+  if (msg.t === 'hosted') { NET.mode = 'host'; NET.myId = 0; NET.code = msg.code; lob.players = [{ id: 0, name: myName() }]; lobbySync(); showRoom(); }
+  else if (msg.t === 'joined') { NET.mode = 'client'; NET.myId = msg.id; NET.code = msg.code; showRoom(); }
+  else if (msg.t === 'err') { setErr(msg.m); closeNet(); }
+  else if (msg.t === 'peer' && NET.mode === 'host') {
+    if (msg.on) {
+      if (state !== 'menu') { netSend({ t: 'busy' }, msg.id); return; }
+      lob.players.push({ id: msg.id, name: msg.name });
+    } else {
+      lob.players = lob.players.filter(p => p.id !== msg.id);
+      const p = players.find(x => x.human && x.owner === msg.id);
+      if (p && state !== 'menu') { p.human = false; p.owner = -1; p.name += ' (ИИ)'; if (state === 'aim' && cur === p.id) aiPlan(p); }
+    }
+    lob.total = clamp(lob.total, Math.max(2, lob.players.length), MAXT);
+    lobbySync();
+  } else if (msg.t === 'in' && NET.mode === 'host') hostMsg(msg.from, msg.m);
+  else if (msg.t === 'hostgone') { setErr('Хост закрыл комнату.'); leaveToMenu(true); }
+  else if (msg.t === 'm' && NET.mode === 'client') {
+    const m = msg.m;
+    if (m.t === 'lobby') { lob.players = m.players; lob.total = m.total; renderRoom(); }
+    else if (m.t === 'busy') { setErr('Игра уже идёт. Дождитесь следующей.'); leaveToMenu(true); }
+    else if (m.t === 'start') {
+      players = makePlayers(m.cfg); round = 1; cur = 0; lastRid = -1; state = 'aim'; $('ui').hidden = true; cv.focus();
+    } else if (m.t === 's' && players.length) applySnap(m);
+  }
+}
+// Без сервера (GitHub Pages, файл): прямое соединение браузеров через PeerJS (WebRTC).
+const P2P_PREFIX = 'scorched-tanks-v1-';
+function randCode() { const A = 'ABCDEFGHJKMNPQRSTUVWXYZ'; let c = ''; for (let i = 0; i < 4; i++) c += A[Math.floor(Math.random() * A.length)]; return c; }
+function newPeer(id) { const o = Object.assign({ debug: 0 }, window.__peerOpts || {}); return id ? new window.Peer(id, o) : new window.Peer(o); }
+function p2pConnect(first) {
+  closeNet();
+  if (!window.Peer) { setErr('Онлайн здесь недоступен. Откройте игру по ссылке с GitHub или запустите start.command.'); return; }
+  NET.tr = 'p2p';
+  if (first.t === 'host') p2pHost(0); else p2pJoin(first);
+}
+function p2pHost(tries) {
+  const code = randCode();
+  let peer;
+  try { peer = newPeer(P2P_PREFIX + code); } catch (e) { setErr('Онлайн здесь недоступен.'); return; }
+  NET.peer = peer; NET.conns = new Map(); NET.nextId = 1;
+  peer.on('open', () => { if (NET.peer === peer) onNet({ t: 'hosted', code }); });
+  peer.on('disconnected', () => { if (NET.peer === peer) { try { peer.reconnect(); } catch (e) { /* ignore */ } } });
+  peer.on('error', err => {
+    if (NET.peer !== peer) return;
+    if (err.type === 'unavailable-id' && tries < 5) { NET.peer = null; peer.destroy(); return p2pHost(tries + 1); }
+    if (err.type === 'peer-unavailable') return;
+    setErr('Ошибка соединения: ' + (err.type || err.message));
+  });
+  peer.on('connection', conn => {
+    let id = null;
+    conn.on('data', d => {
+      if (!d || typeof d !== 'object' || NET.peer !== peer) return;
+      if (id === null) {
+        if (d.t !== 'join') return;
+        if (NET.conns.size >= MAXT - 1) { conn.send({ t: 'err', m: 'Комната заполнена.' }); setTimeout(() => conn.close(), 300); return; }
+        id = NET.nextId++; NET.conns.set(id, conn);
+        conn.send({ t: 'joined', id, code });
+        onNet({ t: 'peer', id, name: String(d.name || 'Игрок').slice(0, 16), on: true });
+      } else if (d.t === 'm') onNet({ t: 'in', from: id, m: d.m });
+    });
+    const gone = () => { if (id !== null && NET.conns && NET.conns.get(id) === conn) { NET.conns.delete(id); onNet({ t: 'peer', id, on: false }); } };
+    conn.on('close', gone); conn.on('error', gone);
+  });
+}
+function p2pJoin(first) {
+  let peer;
+  try { peer = newPeer(); } catch (e) { setErr('Онлайн здесь недоступен.'); return; }
+  NET.peer = peer;
+  const to = setTimeout(() => { if (NET.peer === peer && NET.mode === 'local') { setErr('Не удалось подключиться. Проверьте код или попробуйте другую сеть.'); closeNet(); } }, 15000);
+  peer.on('open', () => {
+    if (NET.peer !== peer) return;
+    const conn = peer.connect(P2P_PREFIX + first.code, { reliable: true, serialization: 'json' });
+    NET.conn = conn;
+    conn.on('open', () => conn.send({ t: 'join', name: first.name }));
+    conn.on('data', d => { if (NET.conn !== conn || !d || typeof d !== 'object') return; if (d.t === 'joined') clearTimeout(to); onNet(d); });
+    conn.on('close', () => { if (NET.conn === conn) { NET.conn = null; if (NET.mode !== 'local') onNet({ t: 'hostgone' }); } });
+  });
+  peer.on('error', err => {
+    if (NET.peer !== peer) return;
+    clearTimeout(to);
+    setErr(err.type === 'peer-unavailable' ? 'Комната не найдена. Проверьте код.' : 'Ошибка соединения: ' + (err.type || err.message));
+    closeNet();
+  });
+}
+function connect(first) {
+  if (!NET.serverOk) return p2pConnect(first);
+  closeNet(); NET.tr = 'ws';
+  let ws;
+  try { ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws'); }
+  catch (e) { setErr('Не удалось подключиться к серверу.'); return; }
+  NET.ws = ws;
+  ws.onopen = () => ws.send(JSON.stringify(first));
+  ws.onmessage = e => { try { onNet(JSON.parse(e.data)); } catch (err) { /* ignore */ } };
+  ws.onclose = () => { if (NET.ws === ws) { NET.ws = null; if (NET.mode !== 'local') { setErr('Соединение потеряно.'); leaveToMenu(true); } } };
+  ws.onerror = () => setErr('Нет связи с сервером.');
+}
+function closeNet() {
+  const ws = NET.ws; NET.ws = null; if (ws) { try { ws.close(); } catch (e) { /* ignore */ } }
+  const pr = NET.peer; NET.peer = null; NET.conn = null; NET.conns = null; if (pr) { try { pr.destroy(); } catch (e) { /* ignore */ } }
+}
+setInterval(() => { if (NET.ws && NET.ws.readyState === 1) NET.ws.send('{"t":"ping"}'); }, 20000);
+
+/* ---------- lobby UI ---------- */
+const lob = { players: [], total: 4 };
+function setErr(s) { $('onErr').textContent = s || ''; }
+function myName() { return ($('onName').value.trim() || 'Игрок').slice(0, 16); }
+function fillSelect(sel, from, to, val) {
+  sel.innerHTML = '';
+  for (let i = from; i <= to; i++) { const o = document.createElement('option'); o.value = i; o.textContent = i; sel.appendChild(o); }
+  sel.value = clamp(val, from, to);
+}
+function showTab(online) {
+  $('tabLocal').setAttribute('aria-selected', String(!online)); $('tabOnline').setAttribute('aria-selected', String(online));
+  $('paneLocal').hidden = online; $('paneOnline').hidden = !online;
+}
+function updLocal() {
+  const total = +$('locTotal').value, hum = clamp(+$('locHumans').value || 1, 1, total);
+  fillSelect($('locHumans'), 1, total, hum);
+  $('locNote').textContent = 'ИИ: ' + (total - hum) + '. Люди ходят по очереди за одним компьютером.';
+}
+function startLocal(total, humans) {
+  NET.mode = 'local'; closeNet(); aiLevel = +$('locLvl').value; mapKind = +$('locMap').value; themePick = +$('locTheme').value;
+  let h = 0, a = 0;
+  const cfg = Array.from({ length: total }, (_, i) => i < humans ? { human: true, owner: 0, name: 'Игрок ' + (++h) } : { human: false, owner: -1, name: 'ИИ ' + (++a) });
+  $('ui').hidden = true; cv.focus(); newGame(cfg);
+}
+function showRoom() {
+  $('onHome').hidden = true; $('onRoom').hidden = false; setErr('');
+  $('roomCode').textContent = NET.code;
+  const host = NET.mode === 'host';
+  $('roomInvite').hidden = !host; $('roomHostRow').hidden = !host; $('roomLvlRow').hidden = !host; $('roomMapRow').hidden = !host; $('roomThemeRow').hidden = !host; $('roomStart').hidden = !host; $('roomWait').hidden = host;
+  if (host) { if (NET.tr === 'p2p') { $('roomBase').parentElement.hidden = true; $('roomNote').textContent = P2P_NOTE; updLink(); } else { $('roomBase').parentElement.hidden = false; $('roomNote').textContent = WS_NOTE; refreshBases(); } }
+  renderRoom();
+}
+function refreshBases() {
+  const sel = $('roomBase'); sel.innerHTML = '';
+  const kind = u => u.startsWith('https://') ? ' (интернет)' : /\/\/100\./.test(u) ? ' (Tailscale)' : /localhost|127\./.test(u) ? ' (этот Mac)' : ' (Wi-Fi)';
+  const add = u => { if (![...sel.options].some(o => o.value === u)) { const o = document.createElement('option'); o.value = u; o.textContent = u + kind(u); sel.appendChild(o); } };
+  if (!/^(localhost|127\.)/.test(location.hostname)) add(location.origin);
+  fetch('/__addrs').then(r => r.json()).then(l => { l.forEach(add); add(location.origin); updLink(); }).catch(() => { add(location.origin); updLink(); });
+  updLink();
+}
+const WS_NOTE = 'Адрес с пометкой «интернет» (https://….ts.net) открывается откуда угодно, пока на вашем Mac запущен start.command. Адрес с пометкой «Wi-Fi» работает только в вашей сети.';
+const P2P_NOTE = 'Отправьте ссылку другу. Он откроет её в браузере, введёт имя и нажмёт «Войти». Соединение идёт напрямую между браузерами; в редких сетях (корпоративные, некоторые мобильные) оно не проходит, тогда используйте start.command.';
+function updLink() {
+  if (NET.tr === 'p2p') { $('roomLink').value = /^https?:$/.test(location.protocol) ? location.origin + location.pathname + '?room=' + NET.code : 'Код комнаты: ' + NET.code; return; }
+  $('roomLink').value = ($('roomBase').value || location.origin) + '/?room=' + NET.code;
+}
+function renderRoom() {
+  const ul = $('roomList'); ul.innerHTML = '';
+  lob.players.forEach((p, i) => {
+    const li = document.createElement('li'); const c = document.createElement('i'); c.style.background = COLORS[i];
+    const n = document.createElement('span'); n.textContent = p.name;
+    li.appendChild(c); li.appendChild(n);
+    if (p.id === 0) { const s = document.createElement('small'); s.textContent = 'хост'; li.appendChild(s); }
+    ul.appendChild(li);
+  });
+  const hn = lob.players.length;
+  if (NET.mode === 'host') fillSelect($('roomTotal'), Math.max(2, hn), MAXT, lob.total);
+  $('roomAi').textContent = 'Людей: ' + hn + ', ИИ: ' + Math.max(0, lob.total - hn) + ', всего танков: ' + lob.total + '.';
+  $('roomStart').disabled = lob.total < 2;
+}
+function lobbySync() { lob.total = clamp(lob.total, Math.max(2, lob.players.length), MAXT); renderRoom(); netSend({ t: 'lobby', players: lob.players, total: lob.total }); }
+function startOnline() {
+  let a = 0;
+  const cfg = lob.players.map(p => ({ human: true, owner: p.id, name: p.name }));
+  while (cfg.length < lob.total) cfg.push({ human: false, owner: -1, name: 'ИИ ' + (++a) });
+  aiLevel = +$('roomLvl').value; mapKind = +$('roomMap').value; themePick = +$('roomTheme').value;
+  netSend({ t: 'start', cfg });
+  $('ui').hidden = true; cv.focus(); lastRid = -1; tSent = -1;
+  newGame(cfg);
+}
+function leaveToMenu(keepErr) {
+  closeNet(); NET.mode = 'local'; state = 'menu'; players = []; ui.wm = false; ui.pm = false;
+  $('onHome').hidden = false; $('onRoom').hidden = true; $('ui').hidden = false;
+  if (!keepErr) setErr('');
+  genTerrain(); theme = THEMES[Math.floor(Math.random() * THEMES.length)]; renderTexture(); sctx.clearRect(0, 0, W, H); renderBackground(); renderTerrain();
+}
+$('tabLocal').onclick = () => showTab(false);
+$('tabOnline').onclick = () => showTab(true);
+$('locTotal').onchange = updLocal; $('locHumans').onchange = updLocal;
+$('locStart').onclick = () => startLocal(+$('locTotal').value, +$('locHumans').value);
+$('onCreate').onclick = () => { setErr(''); try { localStorage.setItem('tanksName', myName()); } catch (e) { /* ignore */ } connect({ t: 'host', name: myName() }); };
+$('onJoin').onclick = () => {
+  const c = $('onCode').value.trim().toUpperCase(); if (c.length < 4) return setErr('Введите код из 4 букв.');
+  setErr(''); try { localStorage.setItem('tanksName', myName()); } catch (e) { /* ignore */ } connect({ t: 'join', code: c, name: myName() });
+};
+$('roomBase').onchange = updLink;
+$('roomCopy').onclick = () => {
+  const el = $('roomLink');
+  const sel = () => { el.select(); try { document.execCommand('copy'); } catch (e) { /* ignore */ } };
+  if (navigator.clipboard) navigator.clipboard.writeText(el.value).catch(sel); else sel();
+  $('roomCopy').textContent = 'Скопировано'; setTimeout(() => { $('roomCopy').textContent = 'Копировать'; }, 1500);
+};
+$('roomTotal').onchange = () => { lob.total = +$('roomTotal').value; lobbySync(); };
+$('roomStart').onclick = startOnline;
+$('roomLeave').onclick = () => leaveToMenu();
+fillSelect($('locTotal'), 2, MAXT, 4); fillSelect($('locHumans'), 1, 4, 1); updLocal();
+try { const n = localStorage.getItem('tanksName'); if (n) $('onName').value = n; } catch (e) { /* ignore */ }
+function updMode() {
+  const el = $('onOff'); el.className = 'note'; el.hidden = false;
+  el.textContent = NET.serverOk ? 'Соединение через сервер на Mac хоста.' : 'Соединение напрямую между браузерами, сервер не нужен.';
+}
+(function () {
+  const q = new URLSearchParams(location.search).get('room');
+  if (q) { showTab(true); $('onCode').value = q.toUpperCase().slice(0, 4); }
+  $('onHome').hidden = false; updMode();
+  fetch('/__tanks').then(r => r.text()).then(t => { NET.serverOk = t === 'ok'; updMode(); }).catch(() => updMode());
+})();
+
+/* ---------- menus: layout ---------- */
+const WM = { x: W / 2 - 330, y: 46, w: 660, h: 624, cw: 196, ch: 112, gap: 12 };
+const NWM = NW + NS;
+function wcard(i) { const c = i % 3, r = Math.floor(i / 3); return { x: WM.x + 16 + c * (WM.cw + WM.gap), y: WM.y + 80 + r * (WM.ch + WM.gap), w: WM.cw, h: WM.ch }; }
+function inR(p, r) { return p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h; }
+function openWMenu() { ui.wm = true; wsel = players[cur].wpn; }
+function pickW(i) {
+  if (i >= NW) return useShield(i - NW);
+  const t = players[cur];
+  if (i >= 0 && i < NW && t.inv[i] > 0) { t.wpn = i; ui.wm = false; tone(500, 800, 0.08, 0.1, 'triangle'); if (NET.mode === 'client') sendAim(t, true); }
+  else tone(150, 100, 0.12, 0.12, 'square');
+}
+const SHOP_ROW = i => ({ x: W / 2 - 300, y: 172 + i * 36, w: 600, h: 32 });
+const SHOP_BTN = { x: W / 2 - 100, y: 580, w: 200, h: 38 };
+const WBTN = { x: 492, y: H - 40, w: 306, h: 34 }, SBTN = { x: 808, y: H - 40, w: 176, h: 34 };
+const canAct = () => state === 'aim' && isMine(players[cur]);
+
+/* ---------- input handling ---------- */
+function onKey(e) {
+  audio();
+  const tag = document.activeElement && document.activeElement.tagName;
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+  const k = e.key.toLowerCase();
+  if (k === 'm' || k === 'ь') { muted = !muted; return; }
+  if (state === 'menu') return;
+  if (ui.pm) {
+    if (k === 'escape' || k === 'enter') ui.pm = false;
+    else if (k === 'r' || k === 'к') resetRound();
+    else if (k === 'n' || k === 'т') skipRound();
+    return;
+  }
+  if (k === 'escape' && !ui.wm) { ui.pm = true; return; }
+  if (ui.wm) {
+    if (k === 'escape' || k === 'tab' || k === 'w' || k === 'ц') ui.wm = false;
+    else if (k === 'arrowleft') wsel = (wsel + NWM - 1) % NWM;
+    else if (k === 'arrowright') wsel = (wsel + 1) % NWM;
+    else if (k === 'arrowup') wsel = (wsel + NWM - 3) % NWM;
+    else if (k === 'arrowdown') wsel = (wsel + 3) % NWM;
+    else if (k === 'enter' || k === ' ') pickW(wsel);
+    else if (/^[1-9]$/.test(k)) pickW(+k - 1);
+    return;
+  }
+  if (state === 'aim') {
+    if (!canAct()) return;
+    const t = players[cur];
+    if (k === ' ' || k === 'enter') doFire(t);
+    else if (k === 'q' || k === '[' || k === 'й') { cycleWpn(t, -1); if (NET.mode === 'client') sendAim(t, true); }
+    else if (k === 'e' || k === ']' || k === 'у') { cycleWpn(t, 1); if (NET.mode === 'client') sendAim(t, true); }
+    else if (k === 'tab' || k === 'w' || k === 'ц') openWMenu();
+    else if (k === 's' || k === 'ы') useShield(bestShield(t), true);
+    else if (/^[1-9]$/.test(k) && t.inv[+k - 1] > 0) { t.wpn = +k - 1; if (NET.mode === 'client') sendAim(t, true); }
+  } else if (state === 'shop') {
+    if (k === 'enter' || k === ' ') shopDone();
+    else if (SHOP_KEYS.indexOf(k) >= 0) buyItem(SHOP_KEYS.indexOf(k));
+  } else if (state === 'gameover') {
+    if (k === 'enter' || k === ' ') leaveToMenu();
+  }
+}
+function onClick(p) {
+  if (state === 'menu') return;
+  if (ui.pm) { for (const b of pmButtons()) if (inR(p, b.r)) return b.act(); return; }
+  if (inR(p, MENU_BTN) && state !== 'gameover') { ui.pm = true; ui.wm = false; return; }
+  if (ui.wm) {
+    for (let i = 0; i < NWM; i++) if (inR(p, wcard(i))) return pickW(i);
+    if (!inR(p, WM)) ui.wm = false;
+  } else if (state === 'aim') {
+    if (canAct() && inR(p, WBTN)) openWMenu();
+    else if (canAct() && inR(p, SBTN)) useShield(bestShield(players[cur]), true);
+  } else if (state === 'shop') {
+    for (let i = 0; i < SHOP.length; i++) if (inR(p, SHOP_ROW(i))) return buyItem(i);
+    if (inR(p, SHOP_BTN)) shopDone();
+  } else if (state === 'gameover') leaveToMenu();
+}
+function onHover(p) {
+  let c = 'default';
+  if (ui.pm) { for (const b of pmButtons()) if (inR(p, b.r)) c = 'pointer'; cv.style.cursor = c; return; }
+  if (inR(p, MENU_BTN) && state !== 'menu') { cv.style.cursor = 'pointer'; return; }
+  if (ui.wm) { for (let i = 0; i < NWM; i++) if (inR(p, wcard(i))) { wsel = i; c = 'pointer'; } }
+  else if (state === 'shop') { for (let i = 0; i < SHOP.length; i++) if (inR(p, SHOP_ROW(i))) c = 'pointer'; if (inR(p, SHOP_BTN)) c = 'pointer'; }
+  else if (canAct() && (inR(p, WBTN) || inR(p, SBTN))) c = 'pointer';
+  cv.style.cursor = c;
+}
+
+/* ---------- update ---------- */
+// Езда: A/D, 1 очко за каждые 4 px, не больше 100 px за ход; на крутой склон не заехать.
+const MOVE_MAX = 100, PX_PER_PT = 4;
+function moveDir() { return (keys['d'] || keys['D'] || keys['в'] || keys['В'] ? 1 : 0) - (keys['a'] || keys['A'] || keys['ф'] || keys['Ф'] ? 1 : 0); }
+function driveTank(t, d) {
+  if (t.falling || (t.moved || 0) >= MOVE_MAX) return;
+  if (!t.moveAcc && t.score < 1) { if (frame - (t.nfT || -99) > 70) { t.nfT = frame; pop(t.x, t.y - 54, 'нет очков', '#ff6a5a'); } return; }
+  const nx = t.x + d;
+  if (nx < 16 || nx > W - 16 || ground(nx) < t.y - 2.5) return;
+  t.x = nx; t.moved = (t.moved || 0) + 1;
+  if (!t.moveAcc) t.score -= 1;
+  t.moveAcc = ((t.moveAcc || 0) + 1) % PX_PER_PT;
+  t.y = Math.min(t.y, ground(nx));
+  if (frame % 3 === 0) addPart({ x: t.x - d * 14, y: t.y - 2, vx: -d * R(0.3, 0.9), vy: R(-0.8, -0.2), life: 24, max: 24, kind: 'debris', size: 2, c: theme.d1 });
+  if (frame % 8 === 0) noise(0.06, 0.05, 300);
+}
+function humanControls(t) {
+  const f = keys['Shift'] ? 0.2 : 1;
+  if (keys['ArrowLeft']) t.angle = clamp(t.angle + 0.6 * f, 0, 180);
+  if (keys['ArrowRight']) t.angle = clamp(t.angle - 0.6 * f, 0, 180);
+  if (keys['ArrowUp']) t.power = clamp(t.power + 0.45 * f, 5, 100);
+  if (keys['ArrowDown']) t.power = clamp(t.power - 0.45 * f, 5, 100);
+}
+function visualUpdate() {
+  shake *= 0.9; if (shake < 0.2) shake = 0;
+  flash *= 0.9; if (flash < 0.02) flash = 0;
+  if (turnFlash > 0) turnFlash--;
+  for (const c of clouds) { c.x += c.sp * c.s + wind * 0.02; if (c.x > W + 80) c.x = -320 * c.s; if (c.x < -330 * c.s) c.x = W + 60; }
+  for (const p of parts) {
+    p.x += p.vx; p.y += p.vy; p.life--;
+    if (p.kind === 'smoke') { p.vx *= 0.99; p.vy *= 0.985; p.vx += wind * 0.0012; }
+    else {
+      p.vy += p.kind === 'debris' ? 0.12 : 0.07;
+      if (p.x >= 0 && p.x < W && p.y > T[p.x | 0] && p.vy > 0) p.life = 0;
+    }
+  }
+  parts = parts.filter(p => p.life > 0);
+  for (const p of pops) { p.y -= 0.45; p.life--; }
+  pops = pops.filter(p => p.life > 0);
+  for (const e of expl) e.t++;
+  expl = expl.filter(e => e.t < e.dur);
+}
+function clientUpdate() {
+  frame++; visualUpdate();
+  for (const p of projs) {
+    p.x += p.vx; p.y += p.vy; p.vy += G * p.gm; if (!p.nw) p.vx += wind * WA;
+    if (frame % 2 === 0 && !p.rolling) addPart({ x: p.x, y: p.y, vx: R(-0.15, 0.15), vy: R(-0.2, 0.05), life: 28, max: 28, kind: 'smoke', size: 3.5, a: 0.3 });
+  }
+  const d = state === 'aim' && !ui.wm && canAct() ? moveDir() : 0;
+  if (d !== lastMv) { lastMv = d; netSend({ t: 'mv', d }); }
+  if (state === 'aim' && !ui.wm && canAct()) { const t = players[cur]; humanControls(t); if (frame % 5 === 0) sendAim(t); }
+}
+/* ---------- round control: replay / skip ---------- */
+let roundStart = null;
+function saveRoundStart(first) {
+  roundStart = {
+    T: Float32Array.from(T), th: themeIdx, wind, first,
+    pl: players.map(p => ({ x: p.x, y: p.y, money: p.money, score: p.score, wins: p.wins, inv: p.inv.slice(), shields: p.shields.slice(), angle: p.angle, power: p.power })),
+  };
+}
+const inPlay = () => ['aim', 'fly', 'settle'].includes(state);
+function resetRound() {
+  if (!roundStart || !inPlay() || NET.mode === 'client') return;
+  const r = roundStart;
+  T.set(r.T); markT(); themeIdx = r.th; theme = THEMES[themeIdx]; roundSeq++;
+  sctx.clearRect(0, 0, W, H); renderBackground();
+  projs = []; expl = []; parts = []; pops = []; wind = r.wind;
+  players.forEach((p, i) => {
+    const q = r.pl[i];
+    Object.assign(p, { x: q.x, y: q.y, money: q.money, score: q.score, wins: q.wins, inv: q.inv.slice(), shields: q.shields.slice(),
+      angle: q.angle, power: q.power, hp: 100, alive: true, vy: 0, falling: false, tilt: 0, wpn: 0, shield: 0, sty: -1, shTurns: 0, ai: null, aiT: null, aiShots: 0 });
+  });
+  ui.pm = false; startTurn(r.first);
+  pop(W / 2, 170, 'Раунд заново', '#ffb627');
+}
+function skipRound() {
+  if (!inPlay() || NET.mode === 'client') return;
+  projs = []; ui.pm = false; ui.wm = false;
+  banner = 'Раунд пропущен'; state = 'roundover'; timer = 90;
+}
+function pmButtons() {
+  const host = NET.mode !== 'client', b = [{ label: 'Продолжить', key: 'Esc', act: () => { ui.pm = false; } }];
+  if (host && inPlay()) {
+    b.push({ label: 'Переиграть раунд', key: 'R', act: resetRound });
+    b.push({ label: round >= ROUNDS ? 'Завершить матч' : 'Следующий раунд', key: 'N', act: skipRound });
+  }
+  b.push({ label: 'Выйти в меню', key: '', act: () => leaveToMenu() });
+  return b.map((x, i) => Object.assign(x, { r: { x: W / 2 - 170, y: 250 + i * 62, w: 340, h: 48 } }));
+}
+const MENU_BTN = { x: W - 190, y: 72, w: 176, h: 26 };
+function update() {
+  if (NET.mode === 'client') return clientUpdate();
+  if (ui.pm && NET.mode === 'local') return;
+  frame++; visualUpdate();
+  let moving = false;
+  for (const t of players) {
+    if (!t.alive || state === 'menu') continue;
+    const gy = ground(t.x);
+    if (t.y < gy - 0.5) {
+      if (!t.falling) { t.falling = true; t.fallStart = t.y; t.vy = 0; }
+      t.vy += 0.25; t.y += t.vy; moving = true;
+      if (t.y >= gy) {
+        const fd = gy - t.fallStart;
+        t.y = gy; t.vy = 0; t.falling = false;
+        if (fd > 28) { hit(t, (fd - 28) * 0.8, null); noise(0.15, 0.3, 400); }
+        for (let i = 0; i < 6; i++) addPart({ x: t.x + R(-12, 12), y: t.y, vx: R(-0.8, 0.8), vy: R(-1.4, -0.4), life: 30, max: 30, kind: 'debris', size: 2, c: theme.d1 });
+      }
+    } else { t.y = gy; t.falling = false; }
+    const g = i => T[clamp(Math.round(i), 0, W - 1)];
+    const tt = clamp(Math.atan2(g(t.x + 11) - g(t.x - 11), 22), -0.55, 0.55);
+    t.tilt += (tt - t.tilt) * 0.25;
+  }
+
+  if (state === 'aim') {
+    const t = players[cur];
+    if (t.human) {
+      if (isMine(t)) { if (!ui.wm) { humanControls(t); const d = moveDir(); if (d) driveTank(t, d); } }
+      else if (t.mvDir) driveTank(t, t.mvDir);
+      if (NET.mode !== 'local' && --aimTimer <= 0) nextTurn();
+    } else aiStep(t);
+  } else if (state === 'fly') {
+    const spawn = [];
+    projs = projs.filter(p => !stepProj(p, spawn));
+    projs.push(...spawn);
+    if (!projs.length) { state = 'settle'; timer = 0; }
+  } else if (state === 'settle') {
+    if (moving) timer = 0; else timer++;
+    if (timer > 45) nextTurn();
+  } else if (state === 'roundover') {
+    if (--timer <= 0) afterRound();
+  } else if (state === 'shop' && NET.mode === 'host') {
+    shopTimer--;
+    if (shopTimer <= 0 || shopWait.size === 0) newRound();
+  }
+  if (NET.mode === 'host' && frame % 2 === 0) netSend(buildSnap());
+}
+
+/* ---------- drawing ---------- */
+function txt(s, x, y, size, col, align, font) {
+  ctx.font = `${size}px ${font || FONT}`; ctx.fillStyle = col || '#efe6d2';
+  ctx.textAlign = align || 'left'; ctx.textBaseline = 'middle'; ctx.fillText(s, x, y);
+}
+function rrect(x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function wIcon(i, cx, cy, s) {
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(s / 30, s / 30); ctx.lineWidth = 2; ctx.lineJoin = 'round';
+  switch (i) {
+    case 0:
+      ctx.rotate(-0.7);
+      ctx.fillStyle = '#d6dae4'; rrect(-18, -6, 26, 12, 4); ctx.fill();
+      ctx.fillStyle = '#e4572e'; ctx.beginPath(); ctx.moveTo(8, -6); ctx.lineTo(22, 0); ctx.lineTo(8, 6); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#9aa3b5'; ctx.beginPath(); ctx.moveTo(-18, -6); ctx.lineTo(-24, -13); ctx.lineTo(-10, -6); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-18, 6); ctx.lineTo(-24, 13); ctx.lineTo(-10, 6); ctx.fill();
+      ctx.fillStyle = '#ffb627'; ctx.beginPath(); ctx.moveTo(-18, -3); ctx.lineTo(-28, 0); ctx.lineTo(-18, 3); ctx.fill(); break;
+    case 1:
+      ctx.fillStyle = '#2b2f3a'; ctx.beginPath(); ctx.arc(0, 4, 16, 0, 6.3); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.beginPath(); ctx.arc(-6, -2, 5, 0, 6.3); ctx.fill();
+      ctx.strokeStyle = '#a58f6a'; ctx.beginPath(); ctx.moveTo(6, -10); ctx.quadraticCurveTo(12, -20, 18, -16); ctx.stroke();
+      ctx.fillStyle = '#ffb627'; ctx.beginPath(); ctx.arc(18, -16, 4, 0, 6.3); ctx.fill(); break;
+    case 2:
+      ctx.fillStyle = '#ffd24a'; ctx.beginPath(); ctx.arc(0, 0, 19, 0, 6.3); ctx.fill();
+      ctx.fillStyle = '#1b1d26';
+      for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 14, k * 2.094 - 0.52 - 1.57, k * 2.094 + 0.52 - 1.57); ctx.closePath(); ctx.fill(); }
+      ctx.beginPath(); ctx.arc(0, 0, 3.5, 0, 6.3); ctx.fill(); break;
+    case 3:
+      ctx.fillStyle = '#c8cdd9'; ctx.beginPath(); ctx.moveTo(0, -20); ctx.lineTo(10, 6); ctx.lineTo(-10, 6); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#e4572e'; for (const x of [-12, 0, 12]) { ctx.beginPath(); ctx.arc(x, 15, 4.5, 0, 6.3); ctx.fill(); } break;
+    case 4:
+      ctx.fillStyle = '#8b5a2b'; ctx.beginPath(); ctx.moveTo(-22, 14); ctx.quadraticCurveTo(0, -26, 22, 14); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#6fae45'; ctx.beginPath(); ctx.moveTo(-12, -2); ctx.quadraticCurveTo(0, -14, 12, -2); ctx.quadraticCurveTo(0, -6, -12, -2); ctx.fill(); break;
+    case 5:
+      ctx.strokeStyle = '#ff5a4a'; ctx.beginPath(); ctx.arc(0, 0, 14, 0, 6.3); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-22, 0); ctx.lineTo(-6, 0); ctx.moveTo(6, 0); ctx.lineTo(22, 0); ctx.moveTo(0, -22); ctx.lineTo(0, -6); ctx.moveTo(0, 6); ctx.lineTo(0, 22); ctx.stroke();
+      ctx.fillStyle = '#ff5a4a'; ctx.beginPath(); ctx.arc(0, 0, 2.5, 0, 6.3); ctx.fill(); break;
+    case 6:
+      for (const [x, y] of [[-12, 8], [0, -6], [12, 8]]) {
+        ctx.fillStyle = '#d6dae4'; rrect(x - 4, y - 8, 8, 16, 3); ctx.fill();
+        ctx.fillStyle = '#e4572e'; ctx.beginPath(); ctx.moveTo(x - 4, y - 8); ctx.lineTo(x, y - 15); ctx.lineTo(x + 4, y - 8); ctx.fill();
+      } break;
+    case 7:
+      ctx.fillStyle = '#9aa3b5'; ctx.beginPath(); ctx.moveTo(0, 22); ctx.lineTo(10, -8); ctx.lineTo(-10, -8); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#4a5160'; for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.moveTo(-8 + k * 3, -2 + k * 7); ctx.lineTo(8 - k * 3, 2 + k * 7); ctx.stroke(); }
+      ctx.fillStyle = '#e4572e'; rrect(-8, -18, 16, 10, 3); ctx.fill(); break;
+    case 8:
+      ctx.fillStyle = '#3a3f4d'; ctx.beginPath(); ctx.arc(0, 0, 18, 0, 6.3); ctx.fill();
+      ctx.strokeStyle = '#8b94a8'; ctx.beginPath(); ctx.arc(0, 0, 18, 0, 6.3); ctx.stroke();
+      for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(k * 1.57 + 0.4) * 16, Math.sin(k * 1.57 + 0.4) * 16); ctx.stroke(); }
+      ctx.fillStyle = '#ffb627'; ctx.beginPath(); ctx.arc(0, 0, 4, 0, 6.3); ctx.fill(); break;
+  }
+  ctx.restore();
+}
+function shieldIcon(j, cx, cy, s) {
+  const sd = SHIELDS[j], k = s / 30;
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(k, k);
+  const g = ctx.createRadialGradient(0, 0, 6, 0, 0, 18);
+  g.addColorStop(0, `rgba(${sd.col},0)`); g.addColorStop(1, `rgba(${sd.col},0.55)`);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 18, 0, 6.3); ctx.fill();
+  ctx.strokeStyle = `rgb(${sd.col})`; ctx.lineWidth = j === 1 ? 4 : 2.2; ctx.beginPath(); ctx.arc(0, 0, 18, 0, 6.3); ctx.stroke();
+  if (sd.deflect) { ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-10, 6); ctx.lineTo(0, -6); ctx.lineTo(10, 6); ctx.stroke(); }
+  ctx.fillStyle = '#d6dae4'; ctx.fillRect(-7, 5, 14, 5); ctx.beginPath(); ctx.arc(0, 5, 5, Math.PI, 0); ctx.fill();
+  ctx.restore();
+}
+// Где остановится прямой выстрел снайпера: земля, танк, купол щита или край экрана.
+function laserEnd(t) {
+  const a = t.angle * Math.PI / 180, p0 = tip(t), dx = Math.cos(a) * 2, dy = -Math.sin(a) * 2;
+  let x = p0.x, y = p0.y;
+  for (let i = 0; i < 1000; i++) {
+    x += dx; y += dy;
+    if (x < 0 || x >= W || y > H || y < -40) return { x: clamp(x, 0, W), y: clamp(y, 0, H), hit: false };
+    if (y >= T[x | 0]) return { x, y, hit: false };
+    for (const o of players) {
+      if (!o.alive || o === t) continue;
+      if (o.shield > 0 ? Math.hypot(x - o.x, y - (o.y - 10)) < SR : Math.hypot(x - o.x, y - (o.y - 9)) < 13) return { x, y, hit: true };
+    }
+  }
+  return { x, y, hit: false };
+}
+function drawTank(t, active) {
+  const x = t.x, y = t.y, c = t.color;
+  ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(x, y + 1, 20, 3.5, 0, 0, 6.3); ctx.fill();
+  ctx.save(); ctx.translate(x, y); ctx.rotate(t.tilt);
+  const tg = ctx.createLinearGradient(0, -9, 0, 1);
+  tg.addColorStop(0, '#3b4050'); tg.addColorStop(1, '#14161d');
+  ctx.fillStyle = tg; rrect(-18, -9, 36, 10, 5); ctx.fill();
+  ctx.strokeStyle = '#0b0c10'; ctx.lineWidth = 1; rrect(-18, -9, 36, 10, 5); ctx.stroke();
+  for (const wx of [-12.5, -4.2, 4.2, 12.5]) {
+    ctx.fillStyle = '#5a6176'; ctx.beginPath(); ctx.arc(wx, -4, 3.2, 0, 6.3); ctx.fill();
+    ctx.fillStyle = '#20232d'; ctx.beginPath(); ctx.arc(wx, -4, 1.2, 0, 6.3); ctx.fill();
+  }
+  const hg = ctx.createLinearGradient(0, -17, 0, -8);
+  hg.addColorStop(0, shade(c, 0.3)); hg.addColorStop(0.5, c); hg.addColorStop(1, shade(c, -0.45));
+  ctx.fillStyle = hg; ctx.beginPath();
+  ctx.moveTo(-15, -8); ctx.lineTo(-11, -16); ctx.lineTo(11, -16); ctx.lineTo(16, -8); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = shade(c, -0.65); ctx.lineWidth = 1.2; ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(-9, -15); ctx.lineTo(9, -15); ctx.stroke();
+  ctx.restore();
+  const pv = pivot(t), a = t.angle * Math.PI / 180;
+  ctx.save(); ctx.translate(pv.x, pv.y); ctx.rotate(-a);
+  const bg = ctx.createLinearGradient(0, -3, 0, 3);
+  bg.addColorStop(0, shade(c, 0.3)); bg.addColorStop(0.5, shade(c, -0.15)); bg.addColorStop(1, shade(c, -0.6));
+  ctx.fillStyle = bg; ctx.fillRect(0, -2.8, 24, 5.6);
+  ctx.fillStyle = '#1a1c25'; ctx.fillRect(20, -4, 6, 8);
+  ctx.strokeStyle = shade(c, -0.7); ctx.lineWidth = 1; ctx.strokeRect(0, -2.8, 24, 5.6);
+  ctx.restore();
+  ctx.save(); ctx.translate(x, y); ctx.rotate(t.tilt);
+  const dg = ctx.createRadialGradient(-2, -21, 1, 0, -16, 9);
+  dg.addColorStop(0, shade(c, 0.5)); dg.addColorStop(0.6, c); dg.addColorStop(1, shade(c, -0.5));
+  ctx.fillStyle = dg; ctx.beginPath(); ctx.arc(0, -16, 8, Math.PI, 0); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = shade(c, -0.65); ctx.lineWidth = 1; ctx.stroke();
+  ctx.restore();
+  if (t.shield > 0 && t.sty >= 0) {
+    const sd = SHIELDS[t.sty], col = sd.col, fr = clamp(t.shield / sd.hp, 0, 1), cy = y - 10;
+    const sg = ctx.createRadialGradient(x, cy, SR * 0.45, x, cy, SR);
+    sg.addColorStop(0, `rgba(${col},0)`); sg.addColorStop(1, `rgba(${col},${0.28 + 0.12 * Math.sin(frame * 0.15)})`);
+    ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(x, cy, SR, 0, 6.3); ctx.fill();
+    ctx.strokeStyle = `rgba(${col},0.25)`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, cy, SR, 0, 6.3); ctx.stroke();
+    ctx.strokeStyle = `rgba(${col},0.9)`; ctx.lineWidth = sd.hp > 100 ? 3.5 : 2.2;
+    ctx.beginPath(); ctx.arc(x, cy, SR, -Math.PI / 2, -Math.PI / 2 + fr * 6.283); ctx.stroke();
+    if (sd.deflect) {
+      ctx.strokeStyle = `rgba(${col},0.35)`; ctx.lineWidth = 1;
+      for (let k = 0; k < 6; k++) { const aa = k * 1.047 + frame * 0.01; ctx.beginPath(); ctx.moveTo(x + Math.cos(aa) * SR * 0.55, cy + Math.sin(aa) * SR * 0.55); ctx.lineTo(x + Math.cos(aa) * SR, cy + Math.sin(aa) * SR); ctx.stroke(); }
+    }
+  }
+  ctx.fillStyle = 'rgba(0,0,0,0.6)'; rrect(x - 18, y - 44, 36, 7, 3); ctx.fill();
+  ctx.fillStyle = t.hp > 50 ? '#6be08a' : t.hp > 25 ? '#ffb627' : '#e4572e'; rrect(x - 17, y - 43, Math.max(2, 34 * t.hp / 100), 5, 2); ctx.fill();
+  if (active) {
+    const b = Math.sin(frame * 0.12) * 3;
+    ctx.fillStyle = '#ffb627'; ctx.beginPath(); ctx.moveTo(x, y - 50 + b); ctx.lineTo(x - 7, y - 62 + b); ctx.lineTo(x + 7, y - 62 + b); ctx.closePath(); ctx.fill();
+  }
+}
+function hudLayout() {
+  const n = Math.max(1, players.length), rows = n > 6 ? 2 : 1, per = Math.ceil(n / rows), ph = rows > 1 ? 46 : 54;
+  return { per, ph, rows, pw: Math.min(228, Math.floor((W - 14 - 200) / per) - 8), bottom: 10 + rows * (ph + 6) };
+}
+function drawHUD() {
+  const L = hudLayout(), { pw, ph, per } = L, compact = pw < 215, big = ph === 54;
+  players.forEach((p, i) => {
+    const x = 14 + (i % per) * (pw + 8), y = 10 + Math.floor(i / per) * (ph + 6);
+    ctx.globalAlpha = p.alive ? 1 : 0.4;
+    const g = ctx.createLinearGradient(0, y, 0, y + ph); g.addColorStop(0, 'rgba(18,22,34,0.85)'); g.addColorStop(1, 'rgba(8,10,18,0.85)');
+    ctx.fillStyle = g; rrect(x, y, pw, ph, 6); ctx.fill();
+    ctx.strokeStyle = (i === cur && state !== 'roundover' && state !== 'shop') ? '#ffb627' : '#252c40'; ctx.lineWidth = 2; rrect(x, y, pw, ph, 6); ctx.stroke();
+    ctx.fillStyle = p.color; ctx.fillRect(x + 10, y + 8, 8, ph - 16);
+    const nm = p.name.length > (compact ? 10 : 16) ? p.name.slice(0, compact ? 10 : 16) : p.name;
+    const y1 = y + (big ? 15 : 12), y2 = y + (big ? 28 : 22), y3 = y + (big ? 44 : 36);
+    txt(nm, x + 26, y1, compact ? 13 : 15, '#efe6d2');
+    txt(p.score + (compact ? '' : ' очк') + '  ★' + p.wins, x + pw - 10, y1, 13, '#efe6d2', 'right');
+    const bw = pw - 98;
+    ctx.fillStyle = 'rgba(255,255,255,0.12)'; rrect(x + 26, y2, bw, 6, 3); ctx.fill();
+    ctx.fillStyle = p.hp > 50 ? '#6be08a' : p.hp > 25 ? '#ffb627' : '#e4572e'; rrect(x + 26, y2, Math.max(3, bw * p.hp / 100), 6, 3); ctx.fill();
+    txt('$' + p.money, x + pw - 10, y2 + 3, compact ? 12 : 14, '#ffb627', 'right');
+    if (p.shield > 0 && p.sty >= 0) txt('щит ' + Math.ceil(p.shield) + ' · ' + p.shTurns + ' кр.', x + 26, y3, 11, `rgb(${SHIELDS[p.sty].col})`);
+    if (NET.mode !== 'local' && isMine(p)) txt('вы', x + pw - 10, y3, 11, '#6be08a', 'right');
+    ctx.globalAlpha = 1;
+  });
+  const wx = W - 190, wy = 12;
+  ctx.fillStyle = 'rgba(10,12,20,0.82)'; rrect(wx, wy, 176, 54, 6); ctx.fill();
+  ctx.strokeStyle = '#252c40'; ctx.lineWidth = 2; rrect(wx, wy, 176, 54, 6); ctx.stroke();
+  txt('ВЕТЕР', wx + 12, wy + 15, 12, '#9aa6bb');
+  txt('Раунд ' + round + '/' + ROUNDS, wx + 164, wy + 15, 12, '#9aa6bb', 'right');
+  const cx = wx + 88, len = wind * 6.5;
+  ctx.strokeStyle = '#efe6d2'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cx, wy + 36); ctx.lineTo(cx + len, wy + 36); ctx.stroke();
+  if (Math.abs(len) > 3) { const s = Math.sign(len); ctx.fillStyle = '#efe6d2'; ctx.beginPath(); ctx.moveTo(cx + len + s * 8, wy + 36); ctx.lineTo(cx + len, wy + 30); ctx.lineTo(cx + len, wy + 42); ctx.fill(); }
+  txt(Math.abs(wind).toFixed(1), cx, wy + 47, 11, '#9aa6bb', 'center');
+  if (state !== 'gameover') {
+    ctx.fillStyle = 'rgba(10,12,20,0.82)'; rrect(MENU_BTN.x, MENU_BTN.y, MENU_BTN.w, MENU_BTN.h, 6); ctx.fill();
+    ctx.strokeStyle = '#252c40'; ctx.lineWidth = 2; rrect(MENU_BTN.x, MENU_BTN.y, MENU_BTN.w, MENU_BTN.h, 6); ctx.stroke();
+    txt('Меню · Esc', MENU_BTN.x + MENU_BTN.w / 2, MENU_BTN.y + 13, 12, '#c9cfdc', 'center');
+  }
+
+  const t = players[cur];
+  if (t && ['aim', 'fly', 'settle'].includes(state)) {
+    const mine = isMine(t);
+    ctx.fillStyle = 'rgba(8,10,18,0.82)'; ctx.fillRect(0, H - 46, W, 46);
+    ctx.fillStyle = '#252c40'; ctx.fillRect(0, H - 47, W, 1);
+    ctx.fillStyle = t.color; ctx.fillRect(14, H - 36, 6, 26);
+    txt(t.name.slice(0, 12), 28, H - 23, 17, t.color);
+    txt('Угол ' + Math.round(t.angle) + '°', 150, H - 23, 17);
+    if (WEAPONS[t.wpn].fixed) txt('Сила не важна', 255, H - 23, 15, '#7d8aa0');
+    else {
+      txt('Сила', 255, H - 23, 17);
+      ctx.fillStyle = 'rgba(255,255,255,0.14)'; rrect(308, H - 29, 140, 12, 6); ctx.fill();
+      ctx.fillStyle = '#ffb627'; rrect(308, H - 29, Math.max(4, 140 * t.power / 100), 12, 6); ctx.fill();
+      txt(String(Math.round(t.power)), 458, H - 23, 17);
+    }
+    const w = WEAPONS[t.wpn], q = t.inv[t.wpn];
+    if (mine && state === 'aim') {
+      ctx.fillStyle = 'rgba(255,255,255,0.08)'; rrect(492, H - 40, 306, 34, 6); ctx.fill();
+      ctx.strokeStyle = '#3a4260'; ctx.lineWidth = 1; rrect(492, H - 40, 306, 34, 6); ctx.stroke();
+    }
+    wIcon(t.wpn, 514, H - 23, 22);
+    txt(w.name + '  ' + (q === Infinity ? '∞' : 'x' + q), 538, H - 23, 17, '#ff9a5a');
+    if (mine && state === 'aim') txt('Tab: выбор', 788, H - 23, 12, '#9aa6bb', 'right');
+    const ns = t.shields ? t.shields.reduce((a, b) => a + b, 0) : 0;
+    if (mine && state === 'aim') {
+      ctx.fillStyle = 'rgba(255,255,255,0.08)'; rrect(SBTN.x, SBTN.y, SBTN.w, SBTN.h, 6); ctx.fill();
+      ctx.strokeStyle = '#3a4260'; ctx.lineWidth = 1; rrect(SBTN.x, SBTN.y, SBTN.w, SBTN.h, 6); ctx.stroke();
+    }
+    if (t.shield > 0 && t.sty >= 0) { shieldIcon(t.sty, SBTN.x + 20, H - 23, 20); txt('щит ' + Math.ceil(t.shield) + ' · ' + t.shTurns + ' кр.', SBTN.x + 38, H - 23, 15, `rgb(${SHIELDS[t.sty].col})`); }
+    else if (mine && state === 'aim') { shieldIcon(bestShield(t) === undefined ? 0 : bestShield(t), SBTN.x + 20, H - 23, 20); txt('Щит (S)  x' + ns, SBTN.x + 38, H - 23, 15, ns ? '#efe6d2' : '#7d8aa0'); }
+    if (mine && state === 'aim') txt('A/D ехать: ' + Math.max(0, MOVE_MAX - (t.moved || 0)) + ' px, 1 очк/4 px', W - 14, H - 32, 12, '#9aa6bb', 'right');
+    txt('Shift точно · Пробел огонь', W - 14, mine && state === 'aim' ? H - 15 : H - 23, 12, '#7d8aa0', 'right');
+  }
+  if (NET.mode !== 'local' && state === 'aim' && aimLeft > 0 && aimLeft <= 50) {
+    txt(String(aimLeft), W / 2, hudLayout().bottom + 18, 22, aimLeft <= 10 ? '#e4572e' : '#9aa6bb', 'center');
+  }
+}
+function drawExpl(e) {
+  const k = e.t / e.dur;
+  ctx.globalCompositeOperation = 'lighter';
+  if (e.kind === 'flash') {
+    const g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, e.r);
+    g.addColorStop(0, `rgba(255,240,180,${1 - k})`); g.addColorStop(1, 'rgba(255,140,40,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, 6.3); ctx.fill();
+  } else if (e.kind === 'dirt') {
+    ctx.globalCompositeOperation = 'source-over';
+    const rr = e.r * (0.4 + 0.6 * k), g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, rr);
+    g.addColorStop(0, `rgba(190,140,90,${0.6 * (1 - k)})`); g.addColorStop(1, 'rgba(120,80,40,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(e.x, e.y, rr, 0, 6.3); ctx.fill();
+  } else {
+    const ease = Math.sin(Math.min(1, k * 1.5) * 1.5708), rr = e.r * (0.35 + 0.75 * ease), al = Math.pow(1 - k, 1.3);
+    const g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, rr);
+    g.addColorStop(0, `rgba(255,255,235,${al})`); g.addColorStop(0.3, `rgba(255,200,80,${al * 0.9})`);
+    g.addColorStop(0.65, `rgba(235,80,30,${al * 0.55})`); g.addColorStop(1, 'rgba(120,20,10,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(e.x, e.y, rr, 0, 6.3); ctx.fill();
+    ctx.strokeStyle = `rgba(255,235,200,${0.5 * (1 - k)})`; ctx.lineWidth = 2 + 3 * (1 - k);
+    ctx.beginPath(); ctx.arc(e.x, e.y, e.r * (0.5 + 1.1 * k), 0, 6.3); ctx.stroke();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+}
+function drawScene() {
+  ctx.drawImage(bgc, 0, 0);
+  for (const c of clouds) ctx.drawImage(cloudSprite, c.x, c.y, 300 * c.s, 100 * c.s);
+  if (dirty) renderTerrain();
+  ctx.drawImage(tc, 0, 0);
+  for (const t of players) if (t.alive) drawTank(t, state === 'aim' && players[cur] === t);
+  if (state === 'aim' && canAct() && !ui.wm) {
+    const t = players[cur], a = t.angle * Math.PI / 180, p0 = tip(t), L = 24 + t.power * 1.1;
+    if (WEAPONS[t.wpn].fixed) {
+      const e = laserEnd(t);
+      ctx.strokeStyle = 'rgba(255,60,50,0.25)'; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(e.x, e.y); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,80,70,0.9)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(e.x, e.y); ctx.stroke();
+      ctx.fillStyle = e.hit ? '#ff3b30' : 'rgba(255,80,70,0.6)'; ctx.beginPath(); ctx.arc(e.x, e.y, e.hit ? 5 + Math.sin(frame * 0.3) : 3, 0, 6.3); ctx.fill();
+    } else {
+      ctx.setLineDash([3, 6]); ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p0.x + Math.cos(a) * L, p0.y - Math.sin(a) * L); ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+  for (const p of parts) {
+    if (p.kind === 'smoke') {
+      const k = 1 - p.life / p.max, sz = p.size * (1 + k * 1.6), al = p.a * (p.life / p.max);
+      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, sz);
+      g.addColorStop(0, `rgba(70,66,64,${al})`); g.addColorStop(1, 'rgba(70,66,64,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, sz, 0, 6.3); ctx.fill();
+    } else if (p.kind === 'debris') {
+      ctx.globalAlpha = clamp(p.life / 30, 0, 1); ctx.fillStyle = p.c; ctx.fillRect(p.x, p.y, p.size, p.size); ctx.globalAlpha = 1;
+    }
+  }
+  ctx.globalCompositeOperation = 'lighter';
+  for (const p of parts) if (p.kind === 'spark') {
+    ctx.globalAlpha = clamp(p.life / 25, 0, 1); ctx.fillStyle = p.c; ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (0.4 + 0.6 * p.life / p.max), 0, 6.3); ctx.fill();
+  }
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  for (const p of projs) {
+    ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 12);
+    g.addColorStop(0, 'rgba(255,230,160,0.9)'); g.addColorStop(1, 'rgba(255,120,40,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, 12, 0, 6.3); ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+    if (p.rolling) { ctx.fillStyle = '#3a3f4d'; ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, 6.3); ctx.fill(); ctx.strokeStyle = '#ffb627'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, 6.3); ctx.stroke(); }
+    else { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(p.x, p.y, p.split ? 2.4 : 3.4, 0, 6.3); ctx.fill(); }
+  }
+  for (const e of expl) drawExpl(e);
+  for (const p of pops) {
+    ctx.globalAlpha = clamp(p.life / 25, 0, 1);
+    ctx.font = `22px ${TITLE}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(8,10,18,0.85)'; ctx.strokeText(p.s, p.x, p.y);
+    ctx.fillStyle = p.c; ctx.fillText(p.s, p.x, p.y);
+  }
+  ctx.globalAlpha = 1;
+  ctx.drawImage(vig, 0, 0);
+  if (flash > 0) { ctx.fillStyle = `rgba(255,250,225,${flash})`; ctx.fillRect(0, 0, W, H); }
+}
+function panel(x, y, w, h) {
+  const g = ctx.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, 'rgba(22,27,42,0.96)'); g.addColorStop(1, 'rgba(9,11,19,0.96)');
+  ctx.fillStyle = g; rrect(x, y, w, h, 12); ctx.fill();
+  ctx.strokeStyle = '#2f3853'; ctx.lineWidth = 2; rrect(x, y, w, h, 12); ctx.stroke();
+}
+function draw() {
+  ctx.save();
+  if (shake > 0) ctx.translate(R(-shake, shake), R(-shake, shake));
+  drawScene();
+  ctx.restore();
+  if (state === 'menu') return;
+  drawHUD();
+  const ct = players[cur];
+  if (turnFlash > 0 && state === 'aim' && ct) {
+    ctx.globalAlpha = clamp(turnFlash / 30, 0, 1);
+    txt(NET.mode !== 'local' && isMine(ct) ? 'Твой ход!' : 'Ход: ' + ct.name, W / 2, hudLayout().bottom + 52, 34, ct.color, 'center', TITLE);
+    ctx.globalAlpha = 1;
+  }
+  if (state === 'roundover') {
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,0.7)'; ctx.shadowBlur = 14;
+    txt(banner, W / 2, H / 2 - 20, 56, '#ffb627', 'center', TITLE); ctx.restore();
+  }
+  if (ui.wm && ct) {
+    ctx.fillStyle = 'rgba(6,8,16,0.7)'; ctx.fillRect(0, 0, W, H);
+    panel(WM.x, WM.y, WM.w, WM.h);
+    const t = ct;
+    txt('Оружие и щиты', WM.x + 24, WM.y + 38, 30, '#ffb627', 'left', TITLE);
+    txt(t.name, WM.x + WM.w - 24, WM.y + 30, 20, t.color, 'right');
+    txt('Клик, цифры 1-9 или стрелки + Enter', WM.x + WM.w - 24, WM.y + 54, 12, '#9aa6bb', 'right');
+    for (let i = 0; i < NWM; i++) {
+      const r = wcard(i), sel = i === wsel, isW = i < NW, j = i - NW;
+      const q = isW ? t.inv[i] : t.shields[j], has = q > 0, active = isW ? t.wpn === i : t.sty === j && t.shield > 0;
+      ctx.globalAlpha = has || active ? 1 : 0.4;
+      const g = ctx.createLinearGradient(0, r.y, 0, r.y + r.h);
+      g.addColorStop(0, sel ? 'rgba(255,182,39,0.2)' : (isW ? 'rgba(255,255,255,0.07)' : 'rgba(110,200,255,0.08)')); g.addColorStop(1, 'rgba(255,255,255,0.02)');
+      ctx.fillStyle = g; rrect(r.x, r.y, r.w, r.h, 8); ctx.fill();
+      ctx.strokeStyle = sel ? '#ffb627' : (active ? '#6be08a' : '#2f3853'); ctx.lineWidth = sel ? 2.5 : 1.5; rrect(r.x, r.y, r.w, r.h, 8); ctx.stroke();
+      if (isW) txt(String(i + 1), r.x + 14, r.y + 16, 14, '#ffb627');
+      else txt(active ? 'активен' : 'щит', r.x + 14, r.y + 16, 12, active ? '#6be08a' : '#6edcff');
+      txt(q === Infinity ? '∞' : 'x' + q, r.x + r.w - 12, r.y + 16, 16, has ? '#efe6d2' : '#ff6a5a', 'right');
+      if (isW) wIcon(i, r.x + r.w / 2, r.y + 42, 30); else shieldIcon(j, r.x + r.w / 2, r.y + 42, 30);
+      const nm = isW ? WEAPONS[i].name : SHIELDS[j].name, ds = isW ? WEAPONS[i].desc : SHIELDS[j].desc;
+      txt(nm, r.x + r.w / 2, r.y + 72, 17, '#efe6d2', 'center');
+      txt(ds, r.x + r.w / 2, r.y + 89, 11, '#9aa6bb', 'center');
+      const st = isW ? (WEAPONS[i].fixed ? 'урон ' + WEAPONS[i].dmg + ' · без силы и ветра' : WEAPONS[i].type === 'dirt' ? 'радиус ' + WEAPONS[i].r : 'радиус ' + WEAPONS[i].r + ' · урон ' + WEAPONS[i].dmg) : 'держится 2 круга';
+      txt(st, r.x + r.w / 2, r.y + 103, 10, '#7d8aa0', 'center');
+      ctx.globalAlpha = 1;
+    }
+    txt('S: поставить лучший щит   Esc или Tab: закрыть', WM.x + WM.w / 2, WM.y + WM.h - 16, 13, '#7d8aa0', 'center');
+  }
+  if (state === 'shop' && shopCur) {
+    ctx.fillStyle = 'rgba(6,8,16,0.75)'; ctx.fillRect(0, 0, W, H);
+    panel(W / 2 - 330, 62, 660, 576);
+    txt('Магазин', W / 2 - 300, 115, 40, '#ffb627', 'left', TITLE);
+    txt(shopCur.name, W / 2 + 300, 108, 22, shopCur.color, 'right');
+    txt('$' + shopCur.money, W / 2 + 300, 142, 26, '#ffb627', 'right');
+    SHOP.forEach((s, i) => {
+      const r = SHOP_ROW(i), can = shopCur.money >= s.price, y = r.y + r.h / 2;
+      ctx.globalAlpha = can ? 1 : 0.45;
+      ctx.fillStyle = 'rgba(255,255,255,0.06)'; rrect(r.x, r.y, r.w, r.h, 6); ctx.fill();
+      txt(SHOP_KEYS[i], r.x + 22, y, 19, '#ffb627', 'center');
+      if (s.wi >= 0) wIcon(s.wi, r.x + 62, y, 22);
+      else shieldIcon(s.si, r.x + 62, y, 22);
+      txt(s.name, r.x + 92, y, 18);
+      const own = s.wi >= 0 ? shopCur.inv[s.wi] : shopCur.shields[s.si];
+      txt('есть: ' + own, r.x + 440, y, 15, '#9aa6bb', 'right');
+      txt('$' + s.price, r.x + 580, y, 19, '#ffb627', 'right');
+      ctx.globalAlpha = 1;
+    });
+    ctx.fillStyle = shopDoneLocal ? '#3a4260' : '#ffb627'; rrect(SHOP_BTN.x, SHOP_BTN.y, SHOP_BTN.w, SHOP_BTN.h, 8); ctx.fill();
+    txt(shopDoneLocal ? 'Ждём остальных…' : 'Готово (Enter)', W / 2, SHOP_BTN.y + SHOP_BTN.h / 2, 18, shopDoneLocal ? '#efe6d2' : '#1b1405', 'center');
+    if (NET.mode !== 'local') {
+      const sec = NET.mode === 'host' ? Math.ceil(shopTimer / 60) : shopTimerShow, wn = NET.mode === 'host' ? shopWait.size : shopWaitN;
+      txt('Ещё не готовы: ' + wn + '  ·  автостарт через ' + sec + ' с', W / 2, 155, 14, '#9aa6bb', 'center');
+    }
+  }
+  if (state === 'gameover') {
+    ctx.fillStyle = 'rgba(6,8,16,0.8)'; ctx.fillRect(0, 0, W, H);
+    panel(W / 2 - 300, 110, 600, 120 + players.length * 54);
+    const rank = [...players].sort((a, b) => b.score - a.score || b.wins - a.wins);
+    txt('Итоги', W / 2, 160, 44, '#ffb627', 'center', TITLE);
+    rank.forEach((p, i) => {
+      const y = 225 + i * 54;
+      ctx.fillStyle = p.color; ctx.fillRect(W / 2 - 260, y - 18, 8, 36);
+      txt((i + 1) + '. ' + p.name, W / 2 - 240, y, 24);
+      txt(p.score + ' очк', W / 2 + 120, y, 22, '#ffb627', 'right');
+      txt('★' + p.wins, W / 2 + 190, y, 18, '#efe6d2', 'right');
+      txt('$' + p.money, W / 2 + 270, y, 15, '#9aa6bb', 'right');
+    });
+    txt('Enter: в меню', W / 2, 225 + players.length * 54 + 10, 18, '#9aa6bb', 'center');
+  }
+  if (ui.pm) {
+    const bs = pmButtons();
+    ctx.fillStyle = 'rgba(6,8,16,0.72)'; ctx.fillRect(0, 0, W, H);
+    panel(W / 2 - 210, 150, 420, 130 + bs.length * 62);
+    txt(NET.mode === 'local' ? 'Пауза' : 'Меню', W / 2, 200, 38, '#ffb627', 'center', TITLE);
+    if (NET.mode === 'client') txt('Раундами управляет хост', W / 2, 232, 13, '#9aa6bb', 'center');
+    else txt('Раунд ' + round + ' из ' + ROUNDS, W / 2, 232, 13, '#9aa6bb', 'center');
+    for (const b of bs) {
+      const r = b.r, main = b.label === 'Продолжить';
+      ctx.fillStyle = main ? '#ffb627' : 'rgba(255,255,255,0.07)'; rrect(r.x, r.y, r.w, r.h, 8); ctx.fill();
+      ctx.strokeStyle = main ? '#ffb627' : '#3a4260'; ctx.lineWidth = 1.5; rrect(r.x, r.y, r.w, r.h, 8); ctx.stroke();
+      txt(b.label, r.x + 20, r.y + r.h / 2, 19, main ? '#1b1405' : '#efe6d2');
+      if (b.key) txt(b.key, r.x + r.w - 18, r.y + r.h / 2, 14, main ? '#5a4210' : '#7d8aa0', 'right');
+    }
+  }
+}
+
+/* ---------- loop ---------- */
+genTerrain(); theme = THEMES[Math.floor(Math.random() * THEMES.length)]; renderTexture(); renderBackground(); renderTerrain();
+players = [];
+let last = performance.now(), acc = 0;
+const STEP = 1000 / 60;
+function loop(now) {
+  acc += Math.min(100, now - last); last = now;
+  while (acc >= STEP) { update(); acc -= STEP; }
+  draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+window.__game = {
+  // Тест: средний промах ИИ (px) по номеру выстрела в одну цель.
+  aiMiss(level, shots, n) {
+    aiLevel = level; const out = [];
+    for (let s = 0; s < shots; s++) {
+      let sum = 0;
+      for (let i = 0; i < n; i++) {
+        const t = players.find(p => !p.human && p.alive), f = players.find(p => p !== t && p.alive);
+        t.aiT = f; t.aiShots = s; const keep = t.inv.slice(); aiPlan(t); t.inv = keep;
+        const pt = tip(t, t.ai.a), L = simulate(pt.x, pt.y, t.ai.a, t.ai.p);
+        sum += Math.hypot(L.x - t.aiT.x, L.y - (t.aiT.y - 9)); t.ai = null;
+      }
+      out.push(Math.round(sum / n));
+    }
+    return out;
+  },
+  startLocal, get state() { return state; }, get mode() { return NET.mode; }, get cur() { return cur; }, players: () => players, fire: () => fire(players[cur]), key: k => onKey({ key: k }) };
+})();
+</script>
