@@ -819,23 +819,44 @@ function onNet(msg) {
 // Без сервера (GitHub Pages, файл): прямое соединение браузеров через PeerJS (WebRTC).
 const P2P_PREFIX = 'scorched-tanks-v1-';
 function randCode() { const A = 'ABCDEFGHJKMNPQRSTUVWXYZ'; let c = ''; for (let i = 0; i < 4; i++) c += A[Math.floor(Math.random() * A.length)]; return c; }
-function newPeer(id) { const o = Object.assign({ debug: 0 }, window.__peerOpts || {}); return id ? new window.Peer(id, o) : new window.Peer(o); }
+// TURN-ретранслятор для игроков из разных сетей: впишите сюда свой бесплатный ключ Metered
+// (metered.ca → TURN Server → app name и API key). Без ключа работает только прямое соединение.
+const TURN = { app: '', apiKey: '' };
+let iceCache = null;
+async function iceServers() {
+  if (iceCache) return iceCache;
+  let list = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }];
+  if (TURN.app && TURN.apiKey) {
+    try {
+      const r = await fetch('https://' + TURN.app + '.metered.live/api/v1/turn/credentials?apiKey=' + encodeURIComponent(TURN.apiKey));
+      const extra = await r.json();
+      if (Array.isArray(extra) && extra.length) list = list.concat(extra);
+    } catch (e) { /* остаёмся на прямом соединении */ }
+  }
+  iceCache = list;
+  return list;
+}
+function newPeer(id, ice) {
+  const o = Object.assign({ debug: 0, config: { iceServers: ice } }, window.__peerOpts || {});
+  return id ? new window.Peer(id, o) : new window.Peer(o);
+}
 function p2pConnect(first) {
   closeNet();
   if (!window.Peer) { setErr('Онлайн здесь недоступен. Откройте игру по ссылке с GitHub или запустите start.command.'); return; }
   NET.tr = 'p2p';
-  if (first.t === 'host') p2pHost(0); else p2pJoin(first);
+  setErr('Подключение…');
+  iceServers().then(ice => { setErr(''); if (first.t === 'host') p2pHost(0, ice); else p2pJoin(first, ice); });
 }
-function p2pHost(tries) {
+function p2pHost(tries, ice) {
   const code = randCode();
   let peer;
-  try { peer = newPeer(P2P_PREFIX + code); } catch (e) { setErr('Онлайн здесь недоступен.'); return; }
+  try { peer = newPeer(P2P_PREFIX + code, ice); } catch (e) { setErr('Онлайн здесь недоступен.'); return; }
   NET.peer = peer; NET.conns = new Map(); NET.nextId = 1;
   peer.on('open', () => { if (NET.peer === peer) onNet({ t: 'hosted', code }); });
   peer.on('disconnected', () => { if (NET.peer === peer) { try { peer.reconnect(); } catch (e) { /* ignore */ } } });
   peer.on('error', err => {
     if (NET.peer !== peer) return;
-    if (err.type === 'unavailable-id' && tries < 5) { NET.peer = null; peer.destroy(); return p2pHost(tries + 1); }
+    if (err.type === 'unavailable-id' && tries < 5) { NET.peer = null; peer.destroy(); return p2pHost(tries + 1, ice); }
     if (err.type === 'peer-unavailable') return;
     setErr('Ошибка соединения: ' + (err.type || err.message));
   });
@@ -855,13 +876,21 @@ function p2pHost(tries) {
     conn.on('close', gone); conn.on('error', gone);
   });
 }
-function p2pJoin(first) {
+function p2pJoin(first, ice) {
   let peer;
-  try { peer = newPeer(); } catch (e) { setErr('Онлайн здесь недоступен.'); return; }
+  try { peer = newPeer(null, ice); } catch (e) { setErr('Онлайн здесь недоступен.'); return; }
   NET.peer = peer;
-  const to = setTimeout(() => { if (NET.peer === peer && NET.mode === 'local') { setErr('Не удалось подключиться. Проверьте код или попробуйте другую сеть.'); closeNet(); } }, 15000);
+  let stage = 'сервер';
+  const to = setTimeout(() => {
+    if (NET.peer !== peer || NET.mode !== 'local') return;
+    setErr(stage === 'сервер'
+      ? 'Нет связи с сервером соединений (PeerJS). Проверьте интернет и попробуйте ещё раз.'
+      : 'Комната найдена, но прямое соединение между вашими сетями не проходит. Попросите хоста запустить игру через start.command и прислать ссылку https://….ts.net.');
+    closeNet();
+  }, 25000);
   peer.on('open', () => {
     if (NET.peer !== peer) return;
+    stage = 'соединение';
     const conn = peer.connect(P2P_PREFIX + first.code, { reliable: true, serialization: 'json' });
     NET.conn = conn;
     conn.on('open', () => conn.send({ t: 'join', name: first.name }));
@@ -871,7 +900,7 @@ function p2pJoin(first) {
   peer.on('error', err => {
     if (NET.peer !== peer) return;
     clearTimeout(to);
-    setErr(err.type === 'peer-unavailable' ? 'Комната не найдена. Проверьте код.' : 'Ошибка соединения: ' + (err.type || err.message));
+    setErr(err.type === 'peer-unavailable' ? 'Комната не найдена. Проверьте код и что у хоста открыта вкладка с комнатой.' : 'Ошибка соединения: ' + (err.type || err.message));
     closeNet();
   });
 }
